@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { enviarRespuestasYObtenerPDF } from "./api";
 
 /** Tipos */
 export type Encabezado = {
@@ -30,7 +31,7 @@ export type EstructuraPayload = Encabezado & {
 };
 
 /** Constantes */
-const STORAGE_KEY = "inegi_cp_form_v2";
+const storageKey = (token: string) => `inegi_cp_from_v2:${token}`
 
 /** 🔒 Campos inmutables en el front */
 const LOCKED_KEYS = new Set<keyof Encabezado>([
@@ -113,14 +114,16 @@ function migrateIfNeeded(raw: any): EstructuraPayload | null {
 export default function FormCasePractices({
   onChange,
   initialData,
+  token, // ← NUEVO: token del link para el POST
 }: {
   onChange: (data: EstructuraPayload, isValid: boolean) => void;
   initialData?: Partial<Encabezado>;
+  token: string;
 }) {
   // Carga inicial desde localStorage (lazy initializer)
   const [data, setData] = useState<EstructuraPayload>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(storageKey(token));
       if (saved) {
         const parsed = JSON.parse(saved);
         const migrated = migrateIfNeeded(parsed);
@@ -149,6 +152,11 @@ export default function FormCasePractices({
   // Pestaña activa (1..N)
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // NUEVO: estados de envío/descarga/errores
+  const [submitting, setSubmitting] = useState(false);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
+
   // Actualizar datos cuando cambien los initialData
   useEffect(() => {
     if (initialData) {
@@ -165,7 +173,7 @@ export default function FormCasePractices({
 
   // Persistencia automática
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(storageKey(token), JSON.stringify(data));
   }, [data]);
 
   /** Helpers para editar */
@@ -272,7 +280,7 @@ export default function FormCasePractices({
     const h = c.encabezado;
     const reqText = [
       h.modalidad, h.convocatoria, h.unidadAdministrativa, h.concurso, h.puesto,
-      h.codigoPuesto, h.nombreEspecialista,  h.fechaElaboracion,
+      h.codigoPuesto, h.nombreEspecialista, /*h.puestoEspecialista,*/ h.fechaElaboracion,
       c.temasGuia, c.planteamiento,
     ].every((v) => !!v && String(v).trim().length > 0);
     const reqDur =
@@ -293,6 +301,33 @@ export default function FormCasePractices({
     onChange(data, allValid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, allValid]);
+
+  /** Handler para finalizar y obtener URL de descarga */
+async function handleFinalize() {
+  if (!allValid || !token) return;
+  setSubmitting(true);
+  setServerError(null);
+  setDownloadUrl(null);
+  try {
+    // Envía respuestas, el back genera PDF y lo descargamos
+    const blob = await enviarRespuestasYObtenerPDF(token, data);
+
+    // Descarga inmediata del PDF en el navegador
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Respuestas_Caso_Practico_${data.concurso || "caso"}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e: any) {
+    setServerError(e?.message || "No se pudo generar/descargar el PDF de respuestas.");
+  } finally {
+    setSubmitting(false);
+  }
+}
+
 
   /** UI */
   const c = data.casos[activeIndex];
@@ -498,9 +533,42 @@ export default function FormCasePractices({
           ? "Formulario completo. Ya puedes generar el PDF desde el botón 'PDF'."
           : "Completa los campos marcados con * y al menos 1 aspecto con puntaje (0–10) en cada caso."}
       </p>
+
+      {/* --- ACCIONES: Finalizar y Descarga --- */}
+      <div className="mt-2 flex items-center gap-3 justify-end">
+        <button
+          type="button"
+          onClick={handleFinalize}
+          disabled={!allValid || submitting || !token}
+          className={`px-4 py-2 rounded-xl border transition
+            ${!allValid || submitting || !token
+              ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
+              : "bg-cyan-800 text-white border-cyan-800 hover:bg-cyan-700"}`}
+          title={!token ? "Falta token del link" : "Enviar formulario"}
+        >
+          {submitting ? "Generando PDF..." : "Finalizar"}
+        </button>
+
+        {downloadUrl && (
+          <a
+            href={downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download
+            className="px-4 py-2 rounded-xl border bg-white text-cyan-800 border-cyan-300 hover:bg-cyan-50"
+          >
+            Descargar respuestas (PDF)
+          </a>
+        )}
+      </div>
+
+      {serverError && (
+        <p className="text-sm text-red-700 text-right">{serverError}</p>
+      )}
     </form>
   );
 }
+
 
 /* ------- Inputs base ------- */
 function TextField({

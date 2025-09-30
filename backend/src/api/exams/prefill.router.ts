@@ -95,7 +95,7 @@ async function handler(req: any, res: any, next: any) {
       return res.status(404).json({ code: "invalid_token" });
     }
 
-    // dentro del handler, después de obtener link y antes del return:
+    // dentro del handler, después de obtener `link` y antes del return:
     const hdr: any = (link as any).header || {};
     const convocatoria =
       (await resolveConvCode((link as any).convocatoriaId)) ||
@@ -131,6 +131,13 @@ async function handler(req: any, res: any, next: any) {
     }
     next(err);
   }
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
 }
 
 export default router;

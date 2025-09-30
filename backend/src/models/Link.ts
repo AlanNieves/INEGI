@@ -1,35 +1,26 @@
 // src/models/Link.ts
-import { Schema, model } from "mongoose";
+import { Schema, model, InferSchemaType } from "mongoose";
 
-const LinkSchema = new Schema(
-  {
-    token: { type: String, required: true },
-    tokenHash: { type: String, required: true, index: true },
+const LinkSchema = new Schema({
+  token: { type: String, required: true, index: true },
+  tokenHash: { type: String, required: true, index: true },
+  header: { type: Schema.Types.Mixed, required: true },
+  status: { type: String, enum: ["ISSUED", "EXPIRED", "USED"], default: "ISSUED" },
+  expiraAt: { type: Date, required: true },
 
-    expiraAt: { type: Date, required: true },
+  // existentes:
+  usado: { type: Boolean, default: false },
 
-    // ¡IMPORTANTE!
-    // Usa Mixed para aceptar ObjectId o string (hash de 40, etc.)
-    convocatoriaId: { type: Schema.Types.Mixed, index: true },
-    concursoId: { type: Schema.Types.Mixed, index: true },
-    plazaId: { type: Schema.Types.Mixed, index: true },
-    especialistaId: { type: Schema.Types.Mixed, index: true },
+  // ⇩⇩⇩ NUEVOS (para que no marque error TS) ⇩⇩⇩
+  usadoAt: { type: Date },                    // cuándo se consumió
+  submissionsCount: { type: Number, default: 0 },
 
-    // Snapshot para el prefill del formulario
-    header: { type: Schema.Types.Mixed, default: {} },
+  // ids relacionados (si ya los tienes, omite)
+  convocatoriaId: { type: Schema.Types.Mixed },
+  concursoId: { type: Schema.Types.Mixed },
+  plazaId: { type: Schema.Types.Mixed },
+  especialistaId: { type: Schema.Types.Mixed },
+}, { timestamps: true });
 
-    status: {
-      type: String,
-      enum: ["ISSUED", "EXPIRED", "USED"],
-      default: "ISSUED",
-      index: true,
-    },
-    usado: { type: Boolean, default: false, index: true },
-  },
-  { timestamps: true, versionKey: false }
-);
-
-// Si quieres evitar duplicados de tokenHash (recomendado):
-// LinkSchema.index({ tokenHash: 1 }, { unique: true });
-
+export type LinkDoc = InferSchemaType<typeof LinkSchema>;
 export default model("Link", LinkSchema);

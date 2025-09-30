@@ -186,6 +186,7 @@ export default function LinkGenerator() {
       const unidadAdministrativa = getUnidad(plaza);
 
       // Tomar especialista real desde la plaza + catálogo
+      
       const jefeNombre = getEspecialistaNombre(plaza, especialistasById);
 
       if (!convId || !concId || !plazaCodigo) {

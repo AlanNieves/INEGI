@@ -111,6 +111,8 @@ export default function FormPage() {
 
       <FormCasePractices
         onChange={handleCasePracticesChange}
+        token={token}
+        key={token}
         initialData={{
           // Estos 6 vienen prellenados y el backend los tomará como inmutables al submit
           convocatoria: readonlyData?.convocatoria ?? "",

@@ -2,12 +2,14 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import crypto from "crypto";
-
+import { sha256Hex, isValidHexToken } from '../../shared/token'
+import { verifyToken } from '../../services/links.service'
 import Convocatoria from "../../models/Convocatoria";
 import Concurso from "../../models/Concurso";
 import Plaza from "../../models/Plaza";
 import Especialista from "../../models/Especialista";
 import Link from "../../models/Link";
+
 
 const router = Router();
 const DEBUG = process.env.DEBUG_LINKS === "1";
@@ -400,13 +402,67 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     const url = `${base}/form/${token}`;
 
     if (DEBUG) console.debug("[links] created link for plaza", String(plaza._id), "url:", url);
-    res.set("Cache-Control", "no-store");
+    res.setHeader("Cache-Control", "no-store");
     return res.status(201).json({ url, token, expiraAt, prefillPreview: prefill });
   } catch (err: any) {
     if (err?.name === "CastError") return res.status(400).json({ code: "invalid_id", message: "Invalid _id" });
     console.error("[links] error:", err?.message);
     return res.status(500).json({ code: "internal_error", message: err?.message || "Internal error" });
   }
+
+  
+  
 });
+
+router.get("/verify", async (req, res, next) => {
+  try {
+    const token = String(req.query.token || "").trim();
+    if (!isValidHexToken(token)) {
+      return res.status(404).json({ valid: false, reason: "invalid_token" });
+    }
+
+    const tokenHash = sha256Hex(token);
+    // Buscar SIEMPRE por tokenHash (o por token si tu modelo lo guarda plano)
+    const link = await Link.findOne({ tokenHash }).lean();
+    if (!link) {
+      return res.status(404).json({ valid: false, reason: "not_found" });
+    }
+
+  
+
+    // OK
+    return res.json({ valid: true });
+  } catch (err: any) {
+    if (err?.code === "expired") return res.json({ valid: false, reason: "expired_token" });
+    if (err?.code === "used")    return res.json({ valid: false, reason: "used_token" });
+    if (err?.code === "invalid") return res.status(404).json({ valid: false, reason: "invalid_token" });
+    next(err);
+  }
+});
+router.get("/verify", async (req, res, next) => {
+  try {
+    const token = String(req.query.token || "").trim();
+    if (!isValidHexToken(token)) {
+      return res.status(404).json({ valid: false, reason: "invalid_token" });
+    }
+
+    const tokenHash = sha256Hex(token);
+    // Buscar SIEMPRE por tokenHash (o por token si tu modelo lo guarda plano)
+    const link = await Link.findOne({ tokenHash }).lean();
+    if (!link) {
+      return res.status(404).json({ valid: false, reason: "not_found" });
+    }
+
+
+    // OK
+    return res.json({ valid: true });
+  } catch (err: any) {
+    if (err?.code === "expired") return res.json({ valid: false, reason: "expired_token" });
+    if (err?.code === "used")    return res.json({ valid: false, reason: "used_token" });
+    if (err?.code === "invalid") return res.status(404).json({ valid: false, reason: "invalid_token" });
+    next(err);
+  }
+});
+
 
 export default router;

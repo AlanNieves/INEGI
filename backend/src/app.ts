@@ -16,6 +16,8 @@ app.use(
   })
 );
 
+app.use(express.static('public'));
+
 // Evita ETag/304 en dev
 app.set('etag', false);
 
