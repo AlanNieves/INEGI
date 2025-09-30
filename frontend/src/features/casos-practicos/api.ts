@@ -1,27 +1,26 @@
-// features/casos-practicos/api.ts
+// src/features/casos-practicos/api.ts
 import type { EstructuraPayload } from "./FormCasePractices";
 
-export async function enviarRespuestasYObtenerPDF(token: string, answers: EstructuraPayload): Promise<Blob> {
-  // 1) Enviar respuestas → backend genera y guarda PDF
-  const res = await fetch(`/api/exams/${encodeURIComponent(token)}`, {
+export async function generarEstructuraPDF(data: EstructuraPayload): Promise<Blob> {
+  const res = await fetch("/api/estructura/generar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ answers, consent: { accepted: true } }),
+    body: JSON.stringify(data),
   });
 
+  const ct = res.headers.get("content-type") || "";
   if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Error al generar el PDF: ${t}`);
+    // lee el cuerpo de error
+    const errText = ct.includes("application/json")
+      ? JSON.stringify(await res.json())
+      : await res.text();
+    throw new Error(`HTTP ${res.status} ${res.statusText} — ${errText}`);
   }
 
-  const { responsesUrl } = await res.json();
-  if (!responsesUrl) throw new Error("El backend no devolvió responsesUrl.");
-
-  // 2) Descargar el PDF listo
-  const pdfRes = await fetch(responsesUrl, { method: "GET" });
-  if (!pdfRes.ok || !(pdfRes.headers.get("content-type") || "").includes("application/pdf")) {
-    const t = await pdfRes.text();
-    throw new Error(`El servidor no devolvió un PDF válido: ${t}`);
+  if (!ct.includes("application/pdf")) {
+    // algunos servidores no envían content-type correcto: igual intentamos
+    console.warn("Content-Type inesperado:", ct);
   }
-  return await pdfRes.blob();
+
+  return await res.blob(); // debería ser application/pdf
 }
