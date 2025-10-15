@@ -44,14 +44,14 @@ const router = Router();
 
 /** Utilidades locales */
 const safeStr = (v: any) => (v == null ? "" : String(v));
-const clamp010 = (n: any) => {
+const clampPoints = (n: any) => {
   const v = Number(n);
   if (!Number.isFinite(v)) return 0;
-  return Math.max(0, Math.min(10, Math.round(v)));
+  return Math.max(0, Math.round(v));
 };
 
 /**
- * Normaliza el payload del front (puntajes 0..10) a DTO con ponderaciones 0..100 por caso.
+ * Normaliza el payload del front (puntajes 0..100) a DTO con ponderaciones que suman exactamente 100 por caso.
  * - La suma de ponderaciones por caso queda EXACTAMENTE en 100.
  * - Si todos los puntajes de un caso son 0, se reparte 100 equitativamente.
  * - temasGuia[] sale del texto del Caso 1 (split por salto de línea, coma o punto y coma).
@@ -70,7 +70,7 @@ function toCreateExamDTO(payload: EstructuraPayload): CreateExamDTO {
 
   const casos: DTOCaso[] = casosFront.map((c, idx) => {
     const asp = Array.isArray(c.aspectos) ? c.aspectos.slice(0, 10) : [];
-    const sum = asp.reduce((acc, a) => acc + clamp010(a?.puntaje), 0);
+    const sum = asp.reduce((acc, a) => acc + clampPoints(a?.puntaje), 0);
 
     const base: DTOAspecto[] = asp.map(a => ({
       nombre: safeStr(a?.descripcion),
@@ -78,9 +78,10 @@ function toCreateExamDTO(payload: EstructuraPayload): CreateExamDTO {
     }));
 
     if (sum > 0) {
+      // Los valores ya vienen como ponderaciones directas, solo necesitamos normalizar para que sumen exactamente 100
       let total = 0;
       for (let i = 0; i < base.length; i++) {
-        const val = Math.round((clamp010(asp[i].puntaje) / sum) * 100);
+        const val = Math.round((clampPoints(asp[i].puntaje) / sum) * 100);
         base[i].ponderacion = val;
         total += val;
       }
@@ -148,7 +149,7 @@ router.post("/:token", async (req, res) => {
     const answers: EstructuraPayload = req.body?.answers;
     const consent = req.body?.consent ?? { accepted: false };
 
-    // 1) Normalizar → DTO (ponderaciones suman 100 por caso)
+    // 1) Normalizar → DTO (asegurar que ponderaciones suman exactamente 100 por caso)
     const dto = toCreateExamDTO(answers);
 
     // 2) Validar con Zod

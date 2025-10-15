@@ -205,9 +205,20 @@ export default function FormCasePractices({
         if (idx !== i) return c;
         const asp = c.aspectos.slice();
         const next = { ...asp[j], ...patch };
-        // clamp puntaje 0..10
-        const p = Number(next.puntaje);
-        next.puntaje = Number.isFinite(p) ? Math.max(0, Math.min(10, p)) : 0;
+        // clamp puntaje 0..100
+        let p = Number(next.puntaje);
+        p = Number.isFinite(p) ? Math.max(0, Math.min(100, p)) : 0;
+        
+        // Verificar que la suma total no exceda 100
+        const currentSum = asp.reduce((acc, a, idx) => acc + (idx === j ? 0 : (Number.isFinite(a.puntaje) ? a.puntaje : 0)), 0);
+        const newSum = currentSum + p;
+        
+        if (newSum > 100) {
+          // Si excede 100, ajustar el valor para que la suma sea exactamente 100
+          p = Math.max(0, 100 - currentSum);
+        }
+        
+        next.puntaje = p;
         asp[j] = next;
         return { ...c, aspectos: asp };
       });
@@ -289,7 +300,7 @@ export default function FormCasePractices({
       c.aspectos.length >= 1 &&
       c.aspectos.length <= 10 &&
       c.aspectos.every(
-        (a) => !!a.descripcion.trim() && Number.isFinite(a.puntaje) && a.puntaje >= 0 && a.puntaje <= 10
+        (a) => !!a.descripcion.trim() && Number.isFinite(a.puntaje) && a.puntaje >= 0 && a.puntaje <= 100
       );
     return reqText && reqDur && reqAspectos;
   };
@@ -303,30 +314,45 @@ export default function FormCasePractices({
   }, [data, allValid]);
 
   /** Handler para finalizar y obtener URL de descarga */
-async function handleFinalize() {
-  if (!allValid || !token) return;
-  setSubmitting(true);
-  setServerError(null);
-  setDownloadUrl(null);
-  try {
-    // Envía respuestas, el back genera PDF y lo descargamos
-    const blob = await enviarRespuestasYObtenerPDF(token, data);
+  async function handleFinalize() {
+    if (!allValid || !token) return;
+    setSubmitting(true);
+    setServerError(null);
+    setDownloadUrl(null);
+    try {
+      // Envía respuestas, el back genera PDF y lo descargamos
+      const { blob, examId, responsesUrl } = await enviarRespuestasYObtenerPDF(token, data);
 
-    // Descarga inmediata del PDF en el navegador
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Respuestas_Caso_Practico_${data.concurso || "caso"}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (e: any) {
-    setServerError(e?.message || "No se pudo generar/descargar el PDF de respuestas.");
-  } finally {
-    setSubmitting(false);
+      // Descarga inmediata del PDF en el navegador
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Respuestas_Caso_Practico_${data.concurso || "caso"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      
+      try {
+        const INDEX_KEY = "inegi_cp_index_v1";
+        const raw = localStorage.getItem(INDEX_KEY);
+        const idx = raw ? (JSON.parse(raw) as any[]) : [];
+        idx.push({
+          token,
+          examId,
+          responsesUrl,
+          nombreEspecialista: data?.nombreEspecialista || data?.casos?.[0]?.encabezado?.nombreEspecialista,
+          concurso: data?.concurso || data?.casos?.[0]?.encabezado?.concurso,
+          savedAt: new Date().toISOString(),
+        });
+        localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
+      } catch {}
+    } catch (e: any) {
+      setServerError(e?.message || "No se pudo generar/descargar el PDF de respuestas.");
+    } finally {
+      setSubmitting(false);
+    }
   }
-}
 
 
   /** UI */
@@ -476,7 +502,7 @@ async function handleFinalize() {
       {/* IV. Aspectos por caso */}
       <fieldset className="border border-cyan-300 rounded-2xl p-4 space-y-4">
         <legend className="px-2 text-cyan-900 font-semibold">
-          IV. Aspectos a evaluar y puntaje por criterio (0–10)
+          IV. Aspectos a evaluar y puntaje por criterio (0–100)
         </legend>
 
         <div className="space-y-3">
@@ -491,7 +517,7 @@ async function handleFinalize() {
                 label="Puntaje"
                 value={asp.puntaje}
                 min={0}
-                max={10}
+                max={100}
                 onChange={(v) => setAspecto(activeIndex, j, { puntaje: Number.isFinite(v) ? v : 0 })}
               />
               <button
@@ -522,7 +548,25 @@ async function handleFinalize() {
           </button>
 
           <div className="font-semibold text-cyan-900">
-            TOTAL: <span>{totalByCase(activeIndex)}</span>
+            TOTAL: <span className={
+              totalByCase(activeIndex) === 100 
+                ? "text-green-600" 
+                : totalByCase(activeIndex) > 100 
+                  ? "text-red-600" 
+                  : "text-orange-600"
+            }>
+              {totalByCase(activeIndex)}/100
+            </span>
+            {totalByCase(activeIndex) !== 100 && (
+              <span className={`text-sm ml-1 ${
+                totalByCase(activeIndex) > 100 ? "text-red-600" : "text-orange-600"
+              }`}>
+                {totalByCase(activeIndex) > 100 
+                  ? "(excede el límite)" 
+                  : "(debe ser 100)"
+                }
+              </span>
+            )}
           </div>
         </div>
       </fieldset>
@@ -531,7 +575,7 @@ async function handleFinalize() {
       <p className={`text-sm ${allValid ? "text-emerald-700" : "text-red-700"}`}>
         {allValid
           ? "Formulario completo. Ya puedes generar el PDF desde el botón 'PDF'."
-          : "Completa los campos marcados con * y al menos 1 aspecto con puntaje (0–10) en cada caso."}
+          : "Completa los campos marcados con * y al menos 1 aspecto con puntaje (0–100) en cada caso. La suma total debe ser 100."}
       </p>
 
       {/* --- ACCIONES: Finalizar y Descarga --- */}

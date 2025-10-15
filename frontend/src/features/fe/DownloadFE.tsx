@@ -12,11 +12,13 @@ type Encabezado = {
   puestoEspecialista?: string;
   fechaElaboracion: string; // yyyy-mm-dd
 };
+type Aspecto = { descripcion: string; puntaje: number };
 type Caso = {
   encabezado: Encabezado;
   temasGuia: string;
   planteamiento: string;
   equipoAdicional?: string;
+  aspectos: Aspecto[];
 };
 type CPStorageV2 = Encabezado & { casos: Caso[] };
 
@@ -49,7 +51,10 @@ export default function DownloadFE() {
         h.duracionMin >= 1 &&
         h.duracionMin <= 120;
       const planOk = !!(c.planteamiento || "").trim();
-      return headerOk && planOk;
+      const aspectosOk = c.aspectos && Array.isArray(c.aspectos) && c.aspectos.length > 0 &&
+        c.aspectos.every(asp => asp.descripcion && asp.descripcion.trim().length > 0 && 
+          Number.isFinite(asp.puntaje) && asp.puntaje > 0);
+      return headerOk && planOk && aspectosOk;
     });
   }, [data]);
 
@@ -60,13 +65,28 @@ export default function DownloadFE() {
     try {
       setDownloading(true);
 
-      // FE: misma lógica por caso (encabezado + planteamiento)
+      // FE: incluir aspectos para la evaluación
       const payload = {
         casos: validCases.map((c) => ({
           encabezado: c.encabezado,
           planteamiento: c.planteamiento,
+          aspectos: c.aspectos, // Incluir los aspectos para evaluación
         })),
       };
+
+      // Debug: Ver cuántos casos se están enviando
+      console.log(`\n=== DEBUG FRONTEND FE ===`);
+      console.log(`Total de casos en localStorage: ${data?.casos?.length || 0}`);
+      console.log(`Casos válidos para enviar: ${validCases.length}`);
+      validCases.forEach((caso, index) => {
+        console.log(`Caso ${index + 1}:`);
+        console.log(`- Aspectos: ${caso.aspectos?.length || 0}`);
+        caso.aspectos?.forEach((asp, aspIndex) => {
+          console.log(`  Aspecto ${aspIndex + 1}: "${asp.descripcion}" (${asp.puntaje}%)`);
+        });
+      });
+      console.log(`Payload a enviar:`, payload);
+      console.log(`========================\n`);
 
       const res = await fetch("/api/fe/generar", {
         method: "POST",
@@ -84,7 +104,7 @@ export default function DownloadFE() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `FE_${data?.concurso || "formulario"}.pdf`;
+      a.download = `FE_${data?.concurso || "formulario"}.xlsx`; // Corregido: .xlsx en lugar de .pdf
       document.body.appendChild(a);
       a.click();
       a.remove();

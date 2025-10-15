@@ -600,7 +600,7 @@ export async function generateResponsesPdf(args: GenerateArgs): Promise<{
   await browser.close();
 
   // 6) Artefacto final
-  const filenameSafe = `Respuestas_Caso_Practico_${(answers.concurso || header.concurso || "caso")}`.replace(/[^\w\-]+/g, "_");
+  const filenameSafe = `Respuestas_Caso_Practico_${(answers.concurso || header.concurso || "caso")}.replace(/[^\w\-]+/g, "_")`;
 
   return {
     filename: `${filenameSafe}.pdf`,

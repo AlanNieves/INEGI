@@ -214,35 +214,45 @@
 
     /* Área de firma */
     .signature-area {
-      margin-top: 40px;
+      margin-top: auto;  /* Empuja el área hacia abajo */
+      padding-top: 40px;
       display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      min-height: 80px;
+      flex-direction: column;  /* Cambiamos a columna para mejor centrado */
+      align-items: center;     /* Centramos horizontalmente */
+      justify-content: center; /* Centramos verticalmente */
+      text-align: center;
+      min-height: 120px;      /* Espacio mínimo para la firma */
     }
 
     .signature-left {
-      flex: 1;
+      width: 100%;
+      max-width: 340px;       /* Limitamos el ancho para mejor presentación */
+      margin: 0 auto;
+      text-align: center;
     }
 
     .signature-label {
       font-size: 7px;
       font-weight: bold;
       margin-bottom: 25px;
+      text-align: center;
     }
 
     .signature-line {
       border-top: 1px solid #000;
       width: 250px;
-      margin-bottom: 3px;
+      margin: 30px auto 8px;  /* Centrado con margen */
     }
 
     .signature-name {
       font-size: 8px;
+      text-align: center;
+      margin-top: 5px;
     }
 
     .date-section {
-      text-align: right;
+      margin-top: 15px;
+      text-align: center;     /* Centramos la fecha también */
       font-size: 7px;
     }
 
@@ -296,13 +306,13 @@
         <td class="label">Concurso:</td>
         <td class="value">{{enc.concurso}}</td>
         <td class="label">Puesto:</td>
-        <td class="value">Subdirección de Servicios Generales</td>
+        <td class="value">{{enc.puesto}}</td>
       </tr>
       <tr>
         <td class="label">Código:</td>
         <td class="value">{{enc.codigoPuesto}}</td>
-        <td class="label">Dirección General de Informática:</td>
-        <td class="value">Dirección General de Informática</td>
+        <td class="label">Duración (min):</td>
+        <td class="value">{{enc.duracionMin}}</td>
       </tr>
       <tr>
         <td class="label">Modalidad:</td>
@@ -376,16 +386,15 @@
 
     <!-- Área de firma -->
     <div class="signature-area">
-      <div class="signature-left">
-        <div style="height: 50px;"></div>
-        <div class="signature-line"></div>
-        <div class="signature-name">{{enc.nombreEspecialista}}</div>
-      </div>
-      <div class="date-section">
-        <div style="font-weight: bold;">FECHA DE ELABORACIÓN</div>
-        <div style="margin-top: 15px;">{{enc.fechaElaboracion}}</div>
-      </div>
+  <div class="signature-left">
+    <div class="signature-line"></div>
+    <div class="signature-name">{{enc.nombreEspecialista}}</div>
+    <div class="date-section">
+      <div style="font-weight: bold;">FECHA DE ELABORACIÓN</div>
+      <div style="margin-top: 15px;">{{enc.fechaElaboracion}}</div>
     </div>
+  </div>
+</div>
   </div>
   {{/each}}
 </body>

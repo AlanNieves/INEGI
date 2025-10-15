@@ -107,6 +107,12 @@ async function handler(req: any, res: any, next: any) {
       "";
 
     // 4) Respuesta EXACTA que espera el front (6 campos planos)
+    console.log(`=== DEBUG PREFILL FOLIO ===`);
+    console.log(`Header completo:`, data?.header);
+    console.log(`Folio en header: "${data?.header?.folio}"`);
+    console.log(`Nombre especialista: "${data?.header?.especialistaNombre}"`);
+    console.log(`========================`);
+    
     return res.json({
       convocatoria,
       unidadAdministrativa: data?.header?.unidadAdministrativa ?? "",
@@ -114,6 +120,7 @@ async function handler(req: any, res: any, next: any) {
       puesto: data?.header?.puesto ?? "",
       codigoPuesto: data?.header?.codigoPlaza ?? "",
       nombreEspecialista: data?.header?.especialistaNombre ?? "",
+      folio: data?.header?.folio ?? "",
     });
   } catch (err: any) {
     if (err?.name === "CastError") {

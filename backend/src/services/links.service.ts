@@ -1,6 +1,7 @@
 import Link from '../models/Link';
 import Plaza from '../models/Plaza';
 import Especialista from '../models/Especialista';
+import Aspirante from '../models/Aspirante';
 import { config } from '../shared/config';
 import { generateTokenHex, sha256Hex } from '../shared/token';
 import { notFound, AppError } from '../shared/errors';
@@ -178,14 +179,42 @@ export async function prefillByToken(tokenHex: string) {
     especialistaNombre = (esp as any)?.nombreCompleto || (esp as any)?.nombre || '';
   }
 
+  // Buscar folio en la tabla aspirantes usando convocatoriaId
+  let folioAspirante = '';
+  const convocatoriaId = (link as any)?.convocatoriaId;
+  if (convocatoriaId) {
+    try {
+      console.log(`Buscando folio en aspirantes para convocatoriaId: ${convocatoriaId}`);
+      const aspirante = await Aspirante.findOne({
+        convocatoriaId: convocatoriaId
+      }).lean();
+      
+      if (aspirante) {
+        folioAspirante = aspirante.folio;
+        console.log(`Folio encontrado en aspirantes: ${folioAspirante}`);
+      } else {
+        console.log('No se encontró aspirante para esta convocatoria');
+      }
+    } catch (error) {
+      console.error('Error al buscar folio en aspirantes:', error);
+    }
+  }
+
   // Construimos el header final priorizando: header del Link -> Plaza -> vacío
+  console.log(`=== DEBUG LINKS SERVICE FOLIO ===`);
+  console.log(`Header original (hdr):`, hdr);
+  console.log(`Plaza encontrada:`, plaza);
+  console.log(`Folio en hdr: "${hdr.folio}"`);
+  console.log(`Folio en plaza: "${(plaza as any)?.folio}"`);
+  console.log(`========================`);
+  
   return {
     plazaId: String((plaza as any)?._id ?? (link as any)?.plazaId ?? ''),
     header: {
       puesto: hdr.puesto ?? (plaza as any)?.puesto ?? (plaza as any)?.puestoNombre ?? '',
       codigoPlaza: hdr.plazaCodigo ?? (plaza as any)?.codigoPlaza ?? (plaza as any)?.codigo ?? '',
       unidadAdministrativa: hdr.unidadAdministrativa ?? (plaza as any)?.unidadAdministrativa ?? '',
-      folio: hdr.folio ?? (plaza as any)?.folio ?? '',
+      folio: hdr.folio ?? folioAspirante ?? (plaza as any)?.folio ?? '',
       fechaAplicacion: hdr.fechaAplicacion ?? (plaza as any)?.fechaAplicacion ?? '',
       horaAplicacion: hdr.horaAplicacion ?? (plaza as any)?.horaAplicacion ?? '',
       especialistaId: String(especialistaId ?? ''),

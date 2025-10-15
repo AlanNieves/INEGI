@@ -6,6 +6,7 @@ import cors from 'cors';
 import { apiRouter } from './api';
 import { config } from './shared/config';
 import debugPlazaRouter from './api/plazas/plazas.router';
+import triangulacionRouter from './api/triangulacion/triangulacion.router';
 const app = express();
 
 app.use(helmet());
@@ -30,6 +31,7 @@ app.use(
 
 // Montar API en /api y /api/v1 (compat con el FE)
 app.use(['/api', '/api/v1'], apiRouter);
+app.use("/api", triangulacionRouter);
 
 // 404 JSON para rutas inexistentes
 app.use((_req: Request, res: Response): void => {

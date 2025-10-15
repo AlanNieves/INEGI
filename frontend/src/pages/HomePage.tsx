@@ -1,3 +1,4 @@
+import SavedForms from "../features/forms/SavedForms";
 import LinkGenerator from "../features/links/LinkGenerator";
 export default function HomePage({
   consentName,
@@ -20,6 +21,7 @@ export default function HomePage({
           <span className="text-xl text-white">FE</span>
         </button>
       </div>
+      <SavedForms/>
     
       {/* Pie */}
       <div className="mt-12 text-center text-gray-700">

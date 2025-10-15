@@ -5,7 +5,7 @@ const nonEmptyString = z.string().trim().min(1, 'Requerido');
 
 const aspectoSchema = z.object({
   nombre: nonEmptyString,
-  ponderacion: z.number().int().min(0).max(100),
+  ponderacion: z.number().int().min(0),
 });
 
 const casoSchema = z.object({

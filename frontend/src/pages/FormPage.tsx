@@ -12,6 +12,7 @@ type PrefillFlat = {
   puesto: string;
   codigoPuesto: string;
   nombreEspecialista: string;
+  folio: string;
 };
 
 export default function FormPage() {
@@ -64,6 +65,7 @@ export default function FormPage() {
         puesto: String(flat.puesto ?? ""),
         codigoPuesto: String(flat.codigoPuesto ?? ""),
         nombreEspecialista: String(flat.nombreEspecialista ?? ""),
+        folio: String(flat.folio ?? ""),
       };
     }
 
@@ -77,6 +79,7 @@ export default function FormPage() {
     const puesto = (h?.plaza?.puesto ?? "") as string;
     const cod = (h?.plaza?.codigoPlaza ?? h?.plaza?.id ?? "") as string;
     const esp = (h?.especialista?.nombre ?? h?.especialista?.nombreCompleto ?? "") as string;
+    const folio = (h?.plaza?.folio ?? h?.folio ?? "") as string;
 
     return {
       convocatoria: String(conv ?? ""),
@@ -85,6 +88,7 @@ export default function FormPage() {
       puesto: String(puesto ?? ""),
       codigoPuesto: String(cod ?? ""),
       nombreEspecialista: String(esp ?? ""),
+      folio: String(folio ?? ""),
     };
   }, [prefill, verif]);
 
@@ -114,13 +118,14 @@ export default function FormPage() {
         token={token}
         key={token}
         initialData={{
-          // Estos 6 vienen prellenados y el backend los tomará como inmutables al submit
+          // Estos 7 vienen prellenados y el backend los tomará como inmutables al submit
           convocatoria: readonlyData?.convocatoria ?? "",
           concurso: readonlyData?.concurso ?? "",
           unidadAdministrativa: readonlyData?.unidadAdministrativa ?? "",
           puesto: readonlyData?.puesto ?? "",
           codigoPuesto: readonlyData?.codigoPuesto ?? "",
           nombreEspecialista: readonlyData?.nombreEspecialista ?? "",
+          folio: readonlyData?.folio ?? "",
 
           // Valores por defecto del examen (editables por el especialista)
           modalidad: "Escrita",
