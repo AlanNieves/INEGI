@@ -20,6 +20,7 @@ const LinkSchema = new Schema({
   concursoId: { type: Schema.Types.Mixed },
   plazaId: { type: Schema.Types.Mixed },
   especialistaId: { type: Schema.Types.Mixed },
+  aspiranteId: { type: Schema.Types.Mixed }, // 🆕 ID del aspirante seleccionado
 }, { timestamps: true });
 
 export type LinkDoc = InferSchemaType<typeof LinkSchema>;

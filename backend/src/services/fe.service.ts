@@ -7,12 +7,12 @@ type Encabezado = {
   unidadAdministrativa: string; 
   concurso: string;
   puesto: string;
-  codigoPuesto: string; 
+  codigoPuesto: string;
+  folio: string;
   modalidad: string; 
   duracionMin: number | string;
   nombreEspecialista: string; 
   puestoEspecialista?: string;
-  folio?: string;
 };
 
 type Aspecto = {
@@ -63,12 +63,7 @@ export async function generarFE(args: FEArgs): Promise<Buffer> {
   // FOLIO y Fecha
   const fechaActual = new Date().toLocaleDateString('es-MX');
   ws.getCell('L6').value = fechaActual;
-  
-  // Agregar folio si está disponible
-  if (args.encabezado.folio) {
-    // Buscar la celda del folio - basándome en el patrón típico de Excel, probablemente esté en L5 o similar
-    ws.getCell('L5').value = args.encabezado.folio;
-  }
+  ws.getCell('N4').value = args.encabezado.folio; // Folio en celda N4
   
   // Encabezado (mismo para todos los casos)
   ws.getCell('C7').value = args.encabezado.convocatoria;

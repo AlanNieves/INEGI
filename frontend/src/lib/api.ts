@@ -40,10 +40,18 @@ export type PlazaRow = {
   especialistaNombre?: string;
 };
 
+export type AspiranteRow = {
+  _id: string;
+  folio: string;
+  nombre: string;
+  label: string;
+};
+
 export type LinkCreatePayload = {
   convocatoriaId: string;   // puede ser _id/hash/codigo (el back lo resuelve)
   concursoId: string;       // puede ser _id/hash/codigo
   plazaId: string;          // manda CÓDIGO de plaza
+  aspiranteId?: string;     // 🆕 ID del aspirante seleccionado
   especialistaId?: string;
   ttlHours?: number;
   prefill: {
@@ -122,6 +130,15 @@ export const api = {
       { params: { convocatoriaId, concursoId } }
     );
     return data;
+  },
+
+  // Aspirantes
+  async listAspirantes(convocatoriaId: string, concursoId: string) {
+    const { data } = await http.get<{ total: number; aspirantes: AspiranteRow[] }>(
+      "/aspirantes/by-plaza",
+      { params: { convocatoriaId, concursoId } }
+    );
+    return data.aspirantes;
   },
 
   // Links

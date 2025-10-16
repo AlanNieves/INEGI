@@ -7,6 +7,7 @@ import linksRouter from './links/links.router';
 import prefillRouter from './exams/prefill.router';
 import examsRouter from './exams/exams.router';
 import consentsRouter from './consents/consents.router';
+import aspirantesRouter from './aspirantes/aspirantes.router';
 
 // ⬇⬇⬇ NUEVOS ⬇⬇⬇
 import estructuraRouter from './estructura/estructura.router';
@@ -19,6 +20,7 @@ apiRouter.use('/health', healthRouter);
 apiRouter.use('/catalog', catalogRouter);
 apiRouter.use('/plazas', plazasRouter);
 apiRouter.use('/links', linksRouter);
+apiRouter.use('/aspirantes', aspirantesRouter);
 
 apiRouter.use("/links", linksRouter)
 

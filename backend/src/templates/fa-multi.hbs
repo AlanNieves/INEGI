@@ -151,15 +151,8 @@
     /* Página 2: Desarrollo */
     .desarrollo-space { 
       min-height: 450px; 
-      border: 2px solid #000; 
       padding: 10px; 
       margin-bottom: 6mm;
-      background: repeating-linear-gradient(
-        transparent,
-        transparent 18px,
-        #e8e8e8 18px,
-        #e8e8e8 19px
-      );
     }
   </style>
 </head>
@@ -177,7 +170,7 @@
         <h2>EVALUACIÓN DE CASOS PRÁCTICOS SPC</h2>
       </div>
       <div class="folio-section">
-        <strong>FOLIO: _______________</strong>
+        <strong>FOLIO: {{encabezado.folio}}</strong>
       </div>
     </div>
 
@@ -229,7 +222,7 @@
       </div>
     </div>
 
-    <div class="page-number">1 de 1</div>
+    <div class="page-number">{{add (multiply (subtract casoNumero 1) 2) 1}} de {{multiply totalCasos 2}}</div>
 
     <!-- PÁGINA 2: DESARROLLO -->
     <div class="page-break">
@@ -242,7 +235,7 @@
           <h2>EVALUACIÓN DE CASOS PRÁCTICOS SPC</h2>
         </div>
         <div class="folio-section">
-          <strong>FOLIO: _______________</strong>
+          <strong>FOLIO: {{encabezado.folio}}</strong>
         </div>
       </div>
 
@@ -292,7 +285,7 @@
         </div>
       </div>
 
-      <div class="page-number">1 de 1</div>
+      <div class="page-number">{{add (multiply (subtract casoNumero 1) 2) 2}} de {{multiply totalCasos 2}}</div>
     </div>
   {{/each}}
 {{else}}
@@ -306,7 +299,7 @@
       <h2>EVALUACIÓN DE CASOS PRÁCTICOS SPC</h2>
     </div>
     <div class="folio-section">
-      <strong>FOLIO: _______________</strong>
+      <strong>FOLIO: {{encabezado.folio}}</strong>
     </div>
   </div>
 
@@ -356,7 +349,7 @@
     </div>
   </div>
 
-  <div class="page-number">1 de 1</div>
+  <div class="page-number">1 de 2</div>
 
   <!-- PÁGINA 2: DESARROLLO -->
   <div class="page-break">
@@ -369,7 +362,7 @@
         <h2>EVALUACIÓN DE CASOS PRÁCTICOS SPC</h2>
       </div>
       <div class="folio-section">
-        <strong>FOLIO: _______________</strong>
+        <strong>FOLIO: {{encabezado.folio}}</strong>
       </div>
     </div>
 
@@ -418,7 +411,7 @@
       </div>
     </div>
 
-    <div class="page-number">1 de 1</div>
+    <div class="page-number">2 de 2</div>
   </div>
 {{/if}}
 </body>

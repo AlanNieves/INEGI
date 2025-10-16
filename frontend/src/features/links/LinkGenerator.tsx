@@ -54,6 +54,13 @@ type Especialista = {
   email?: string;
 };
 
+type Aspirante = {
+  _id: string;
+  folio: string;
+  nombre: string;
+  label: string;
+};
+
 type GenResult = { token: string; url: string; expiraAt: string };
 
 /* ------------------------------ Utilidades UI ----------------------------- */
@@ -98,9 +105,11 @@ export default function LinkGenerator() {
   const [concursos, setConcursos] = useState<Concurso[]>([]);
   const [plazas, setPlazas] = useState<Plaza[]>([]);
   const [especialistas, setEspecialistas] = useState<Especialista[]>([]);
+  const [aspirantes, setAspirantes] = useState<Aspirante[]>([]);
 
   const [convId, setConvId] = useState("");
   const [concId, setConcId] = useState("");
+  const [selectedAspirantes, setSelectedAspirantes] = useState<Record<string, string>>({}); // plazaId -> aspiranteId
 
   const [busy, setBusy] = useState(false);
   const [busyRow, setBusyRow] = useState<string | null>(null);
@@ -146,12 +155,30 @@ export default function LinkGenerator() {
   useEffect(() => {
     (async () => {
       setPlazas([]);
+      setAspirantes([]);
+      setSelectedAspirantes({}); // Limpiar selecciones anteriores
       if (!convId || !concId) return;
+      
+      console.log("🔍 [DEBUG] Frontend enviando a aspirantes:", {
+        convId,
+        concId,
+        convIdType: typeof convId,
+        concIdType: typeof concId
+      });
+      
       try {
-        const data = await api.listPlazas(convId, concId);
-        setPlazas(data as any);
+        const [plazasData, aspirantesData] = await Promise.all([
+          api.listPlazas(convId, concId),
+          api.listAspirantes(convId, concId),
+        ]);
+        
+        console.log("🔍 [DEBUG] Aspirantes recibidos:", aspirantesData);
+        
+        setPlazas(plazasData as any);
+        setAspirantes(aspirantesData);
       } catch (e: any) {
-        setError(e?.message || "Error cargando plazas.");
+        console.error("🔍 [DEBUG] Error:", e);
+        setError(e?.message || "Error cargando plazas/aspirantes.");
       }
     })();
   }, [convId, concId]);
@@ -170,6 +197,20 @@ export default function LinkGenerator() {
 
   const handleGenerate = async (plaza: Plaza) => {
     setError(null);
+    
+    // Validar que se haya seleccionado un aspirante
+    const selectedAspiranteId = selectedAspirantes[plaza._id];
+    if (!selectedAspiranteId) {
+      setError("Debes seleccionar un aspirante/folio para esta plaza.");
+      return;
+    }
+    
+    const selectedAspirante = aspirantes.find(a => a._id === selectedAspiranteId);
+    if (!selectedAspirante) {
+      setError("Aspirante seleccionado no encontrado.");
+      return;
+    }
+
     setBusy(true);
     setBusyRow(plaza._id);
 
@@ -198,6 +239,7 @@ export default function LinkGenerator() {
         convocatoriaId: convId, // _id/hash del select (tal como viene del catálogo)
         concursoId: concId,     // _id/hash del select
         plazaId: plazaCodigo,   // código robusto de la plaza
+        aspiranteId: selectedAspirante._id, // 🆕 ID del aspirante seleccionado
         ttlHours: 48,
         prefill: {
           convocatoria: convCode,
@@ -205,6 +247,7 @@ export default function LinkGenerator() {
           plazaCodigo,
           puesto,
           unidadAdministrativa,
+          folio: selectedAspirante.folio, // 🆕 Folio del aspirante seleccionado
           jefeNombre,
           radicacion: (plaza as any).radicacion || "",
         },
@@ -300,6 +343,7 @@ export default function LinkGenerator() {
                 <th className="px-3 py-2">Plaza</th>
                 <th className="px-3 py-2">Puesto</th>
                 <th className="px-3 py-2">Unidad</th>
+                <th className="px-3 py-2">Aspirante/Folio</th>
                 <th className="px-3 py-2">Jefe de plaza</th>
                 <th className="px-3 py-2">Acción</th>
                 <th className="px-3 py-2">Link</th>
@@ -308,7 +352,7 @@ export default function LinkGenerator() {
             <tbody>
               {plazas.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-gray-500">
+                  <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
                     No hay plazas para esta combinación.
                   </td>
                 </tr>
@@ -327,12 +371,34 @@ export default function LinkGenerator() {
                     <td className="px-3 py-2 font-mono">{codigo || "—"}</td>
                     <td className="px-3 py-2">{puesto || "—"}</td>
                     <td className="px-3 py-2">{unidad || "—"}</td>
+                    <td className="px-3 py-2">
+                      {aspirantes.length > 0 ? (
+                        <select
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          value={selectedAspirantes[p._id] || ""}
+                          onChange={(e) => setSelectedAspirantes(prev => ({
+                            ...prev,
+                            [p._id]: e.target.value
+                          }))}
+                        >
+                          <option value="">Seleccionar aspirante...</option>
+                          {aspirantes.map(asp => (
+                            <option key={asp._id} value={asp._id}>
+                              {asp.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-gray-500 text-sm">Sin aspirantes</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2">{espName}</td>
                     <td className="px-3 py-2">
                       <button
                         className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm disabled:opacity-50"
                         onClick={() => handleGenerate(p)}
-                        disabled={busy || busyRow === p._id}
+                        disabled={busy || busyRow === p._id || !selectedAspirantes[p._id]}
+                        title={!selectedAspirantes[p._id] ? "Selecciona un aspirante primero" : ""}
                       >
                         {busyRow === p._id ? "Generando..." : "Generar link (48h)"}
                       </button>

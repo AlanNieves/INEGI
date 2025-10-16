@@ -106,21 +106,15 @@ async function handler(req: any, res: any, next: any) {
       hdr.concurso ||
       "";
 
-    // 4) Respuesta EXACTA que espera el front (6 campos planos)
-    console.log(`=== DEBUG PREFILL FOLIO ===`);
-    console.log(`Header completo:`, data?.header);
-    console.log(`Folio en header: "${data?.header?.folio}"`);
-    console.log(`Nombre especialista: "${data?.header?.especialistaNombre}"`);
-    console.log(`========================`);
-    
+    // 4) Respuesta EXACTA que espera el front (7 campos planos)
     return res.json({
       convocatoria,
       unidadAdministrativa: data?.header?.unidadAdministrativa ?? "",
       concurso,
       puesto: data?.header?.puesto ?? "",
       codigoPuesto: data?.header?.codigoPlaza ?? "",
-      nombreEspecialista: data?.header?.especialistaNombre ?? "",
       folio: data?.header?.folio ?? "",
+      nombreEspecialista: data?.header?.especialistaNombre ?? "",
     });
   } catch (err: any) {
     if (err?.name === "CastError") {

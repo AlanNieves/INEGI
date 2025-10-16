@@ -24,6 +24,7 @@ type Encabezado = {
   concurso: string;
   puesto?: string;
   codigoPuesto: string;
+  folio?: string;
   modalidad: string;
   duracionMin: number | string;
   nombreEspecialista: string;
@@ -45,6 +46,7 @@ type AnswersPayload = {
   concurso: string;
   puesto: string;
   codigoPuesto: string;
+  folio?: string;
   modalidad: string;
   duracionMin: number;
   nombreEspecialista: string;
@@ -59,6 +61,7 @@ type GenerateArgs = {
     unidadAdministrativa: string;
     concurso: string;
     codigoPuesto: string;
+    folio?: string;
     modalidad: string;
     nombreEspecialista: string;
     duracionMin: number | string;
@@ -542,6 +545,8 @@ export async function generateResponsesPdf(args: GenerateArgs): Promise<{
         header.puesto || answers.puesto || c.encabezado?.puesto || "",
       codigoPuesto:
         header.codigoPuesto || answers.codigoPuesto || c.encabezado?.codigoPuesto || "",
+      folio:
+        header.folio || answers.folio || c.encabezado?.folio || "",
       modalidad:
         header.modalidad || answers.modalidad || c.encabezado?.modalidad || "",
       duracionMin:

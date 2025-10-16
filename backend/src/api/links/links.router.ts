@@ -8,6 +8,7 @@ import Convocatoria from "../../models/Convocatoria";
 import Concurso from "../../models/Concurso";
 import Plaza from "../../models/Plaza";
 import Especialista from "../../models/Especialista";
+import Aspirante from "../../models/Aspirante";
 import Link from "../../models/Link";
 
 
@@ -264,6 +265,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       convocatoriaId,      // _id string (hash 40) o "004/2024"
       concursoId,          // _id string (hash 40) o "124002"
       plazaId,             // "CFEC2G24C-20159" o _id
+      aspiranteId,         // 🆕 _id del aspirante seleccionado
       especialistaId,      // _id, email, curp, nombre
       ttlHours = 48,
       prefill: clientPrefill = {},
@@ -348,6 +350,18 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       return res.status(400).json({ message: "invalid especialistaId (no se pudo resolver o crear especialista)" });
     }
 
+    /* 3.5) 🆕 Resolver aspirante y obtener folio */
+    let folio = clientPrefill?.folio || "";
+    if (aspiranteId) {
+      const aspirante = await Aspirante.findById(aspiranteId).lean();
+      if (aspirante) {
+        folio = aspirante.folio;
+        if (DEBUG) console.debug("[links] folio obtenido del aspirante:", folio);
+      } else {
+        return res.status(400).json({ message: "invalid aspiranteId (aspirante no encontrado)" });
+      }
+    }
+
     /* 4) PREFILL para el formulario */
     const plazaCodigo =
       clientPrefill?.plazaCodigo ||
@@ -369,6 +383,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       plazaCodigo,
       puesto: puestoNombre,
       unidadAdministrativa: unidadAdm,
+      folio,
       jefeNombre: jefeNombre || (esp as any)?.nombreCompleto || "",
       radicacion,
     };
@@ -393,6 +408,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       concursoId: concIdFinal,
       plazaId: plaza._id,
       especialistaId: esp._id,
+      aspiranteId: aspiranteId || null, // 🆕 ID del aspirante (puede ser null si no se seleccionó)
       header: prefill,
       status: "ISSUED",
       usado: false,

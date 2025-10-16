@@ -1,45 +1,32 @@
-import { Schema, model } from "mongoose";
+import { Schema, Types, model } from "mongoose";
 
 const AspiranteSchema = new Schema(
   {
-    // En tu BD es hash-40, no ObjectId
-    _id: { type: String, required: true },
-
-    // FK a convocatoria
-    convocatoriaId: { type: Schema.Types.Mixed },
-    
-    // FK a concurso
-    concursoId: { type: Schema.Types.Mixed },
-
-    // Folio del aspirante
-    folio: { type: String, required: true },
-
-    // Nombres del aspirante
-    aspiranteName: { type: String },
-    aspiranteNameNorm: { type: String },
-
-    // Nombre del concurso
-    concursoName: { type: String },
-
-    // Nombre de la convocatoria
-    convocatoriaName: { type: String },
+    convocatoriaId: { type: String, required: true, index: true },
+    concursoId: { type: String, required: true, index: true },
+    folio: { type: String, required: true, unique: true, trim: true },
+    aspiranteName: { type: String, required: true, trim: true },
+    aspiranteNameNorm: { type: String, trim: true },
+    concursoName: { type: String, trim: true },
+    convocatoriaName: { type: String, trim: true },
   },
-  {
-    versionKey: false,
-    strict: false, // tolera variaciones reales de la colección
-    timestamps: false,
-  }
+  { timestamps: true }
 );
+
+// Índice compuesto para acelerar búsqueda por convocatoria+concurso
+AspiranteSchema.index({ convocatoriaId: 1, concursoId: 1 });
 
 export type Aspirante = {
   _id: string;
   convocatoriaId: string;
   concursoId: string;
   folio: string;
-  aspiranteName?: string;
+  aspiranteName: string;
   aspiranteNameNorm?: string;
   concursoName?: string;
   convocatoriaName?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
-export default model("Aspirante", AspiranteSchema, "aspirantes");
+export default model<Aspirante>("Aspirante", AspiranteSchema, "Aspirantes");

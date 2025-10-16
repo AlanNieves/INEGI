@@ -168,6 +168,7 @@ router.post("/:token", async (req, res) => {
         unidadAdministrativa: link.header?.unidadAdministrativa ?? "",
         concurso: link.header?.concurso ?? "",
         codigoPuesto: link.header?.codigoPuesto ?? link.header?.plazaCodigo ?? "",
+        folio: link.header?.folio ?? "",
         modalidad: answers?.modalidad ?? "",
         nombreEspecialista:
           link.header?.jefeNombre ??

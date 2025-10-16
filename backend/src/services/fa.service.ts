@@ -3,11 +3,24 @@ import path from "node:path";
 import Handlebars from "handlebars";
 import puppeteer from "puppeteer";
 
+// Registrar helpers de Handlebars
+Handlebars.registerHelper('add', function(a: number, b: number) {
+  return a + b;
+});
+
+Handlebars.registerHelper('multiply', function(a: number, b: number) {
+  return a * b;
+});
+
+Handlebars.registerHelper('subtract', function(a: number, b: number) {
+  return a - b;
+});
+
 type Aspecto = { descripcion: string; puntaje: number };
 type Encabezado = {
   convocatoria: string; unidadAdministrativa: string; concurso: string;
-  puesto?: string; codigoPuesto: string; modalidad: string; duracionMin: number | string;
-  nombreEspecialista: string; puestoEspecialista?: string; folio?: string;
+  puesto?: string; codigoPuesto: string; folio?: string; modalidad: string; duracionMin: number | string;
+  nombreEspecialista: string; puestoEspecialista?: string;
 };
 type Caso = { planteamiento?: string; temasGuia?: string; equipo?: string; };
 type FAArgs = { 

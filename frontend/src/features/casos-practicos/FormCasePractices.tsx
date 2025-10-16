@@ -8,6 +8,7 @@ export type Encabezado = {
   concurso: string;
   puesto: string;
   codigoPuesto: string;
+  folio: string;              // Folio de la plaza
   modalidad: string;          // Oral | Escrita (o lo que decidas)
   duracionMin: number;        // 1..120
   nombreEspecialista: string;
@@ -49,6 +50,7 @@ const emptyHeader = (): Encabezado => ({
   concurso: "",
   puesto: "",
   codigoPuesto: "",
+  folio: "",
   modalidad: "",
   duracionMin: 0,
   nombreEspecialista: "",
@@ -81,7 +83,7 @@ function migrateIfNeeded(raw: any): EstructuraPayload | null {
   }
   // Esquema v1 (sin casos, con campos raíz + "aspectos")
   const keys = [
-    "convocatoria","unidadAdministrativa","concurso","puesto","codigoPuesto","modalidad",
+    "convocatoria","unidadAdministrativa","concurso","puesto","codigoPuesto","folio","modalidad",
     "duracionMin","nombreEspecialista","puestoEspecialista","fechaElaboracion",
     "temasGuia","planteamiento","equipoAdicional","aspectos"
   ];
@@ -94,6 +96,7 @@ function migrateIfNeeded(raw: any): EstructuraPayload | null {
     concurso: raw.concurso ?? "",
     puesto: raw.puesto ?? "",
     codigoPuesto: raw.codigoPuesto ?? "",
+    folio: raw.folio ?? "",
     modalidad: raw.modalidad ?? "",
     duracionMin: raw.duracionMin ?? 0,
     nombreEspecialista: raw.nombreEspecialista ?? "",
@@ -291,7 +294,7 @@ export default function FormCasePractices({
     const h = c.encabezado;
     const reqText = [
       h.modalidad, h.convocatoria, h.unidadAdministrativa, h.concurso, h.puesto,
-      h.codigoPuesto, h.nombreEspecialista, /*h.puestoEspecialista,*/ h.fechaElaboracion,
+      h.codigoPuesto, h.folio, h.nombreEspecialista, /*h.puestoEspecialista,*/ h.fechaElaboracion,
       c.temasGuia, c.planteamiento,
     ].every((v) => !!v && String(v).trim().length > 0);
     const reqDur =
@@ -429,6 +432,12 @@ export default function FormCasePractices({
           label="Código *"
           value={c.encabezado.codigoPuesto}
           onChange={(v) => setHeader(activeIndex, "codigoPuesto", v)}
+          disabled
+        />
+        <TextField
+          label="Folio *"
+          value={c.encabezado.folio}
+          onChange={(v) => setHeader(activeIndex, "folio", v)}
           disabled
         />
         <SelectField

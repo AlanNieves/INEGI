@@ -38,10 +38,6 @@ router.post('/generar', async (req, res, next) => {
       return res.status(400).json({ error: 'Faltan datos del encabezado' });
     }
 
-    // Obtener folio directamente del encabezado (viene desde el frontend via prefill)
-    const folio = encabezado?.folio || '';
-    console.log(`Folio obtenido del encabezado FE: ${folio}`);
-
     // Validar que todos los casos tengan aspectos
     for (let i = 0; i < casos.length; i++) {
       const caso = casos[i];
@@ -62,11 +58,11 @@ router.post('/generar', async (req, res, next) => {
         concurso: encabezado.concurso || '',
         puesto: encabezado.puesto || '',
         codigoPuesto: encabezado.codigoPuesto || '',
+        folio: encabezado.folio || '',
         modalidad: encabezado.modalidad || '',
         duracionMin: encabezado.duracionMin || 0,
         nombreEspecialista: encabezado.nombreEspecialista || '',
-        puestoEspecialista: encabezado.puestoEspecialista || '',
-        folio: folio // Usar el folio obtenido
+        puestoEspecialista: encabezado.puestoEspecialista || ''
       },
       casos: casosParaFE
     };
