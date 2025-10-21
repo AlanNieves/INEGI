@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { useFolios } from "../../contexts/FoliosContext";
+import { downloadZip } from "../../utils/downloadHelpers";
+import { api } from "../../lib/api";
 
 /** Estructuras mínimas que esperamos desde el form de Casos */
 type Encabezado = {
@@ -36,13 +39,26 @@ function readCases(): CPStorageV2 | null {
   }
 }
 
-export default function DownloadFA() {
+interface DownloadFAProps {
+  /** Casos pasados desde FormPage (modo batch). Si no se pasa, lee de localStorage (modo individual) */
+  casos?: any[];
+}
+
+export default function DownloadFA({ casos: casosProp }: DownloadFAProps = {}) {
   const [downloading, setDownloading] = useState(false);
-  const data = useMemo(readCases, []); // lee una vez
+  const [error, setError] = useState<string | null>(null);
+  const { selectedFolios } = useFolios();
+  
+  // Determinar si estamos en modo batch
+  const isBatchMode = selectedFolios.length > 0 && !!casosProp;
+  
+  // Datos desde props (batch) o localStorage (individual)
+  const dataFromStorage = useMemo(readCases, []); // lee una vez
+  const data = casosProp ? null : dataFromStorage; // Si hay props, ignorar localStorage
 
   const validCases = useMemo(() => {
-    if (!data) return [];
-    return data.casos.filter((c) => {
+    const sourceCases = casosProp || data?.casos || [];
+    return sourceCases.filter((c: any) => {
       const h = c.encabezado || ({} as Encabezado);
       const headerOk =
         [h.convocatoria, h.unidadAdministrativa, h.concurso, h.puesto, h.codigoPuesto, h.modalidad, h.fechaElaboracion]
@@ -53,53 +69,81 @@ export default function DownloadFA() {
       const planOk = !!(c.planteamiento || "").trim();
       return headerOk && planOk;
     });
-  }, [data]);
+  }, [casosProp, data]);
 
-  const disabled = !data || validCases.length === 0 || downloading;
+  const disabled = validCases.length === 0 || downloading;
 
   const handleDownload = async () => {
     if (disabled) return;
+    
+    setDownloading(true);
+    setError(null);
+
     try {
-      setDownloading(true);
+      if (isBatchMode) {
+        // Modo BATCH: Generar múltiples PDFs en ZIP
+        const blob = await api.generarFALote({ casos: validCases, folios: selectedFolios });
+        const timestamp = Date.now();
+        await downloadZip(blob, `FA_lote_${timestamp}.zip`);
+      } else {
+        // Modo INDIVIDUAL: Generar un solo PDF
+        const payload = {
+          pagesPerCase: 2, // FA = 2 páginas por caso
+          casos: validCases.map((c: any) => ({
+            encabezado: c.encabezado,
+            planteamiento: c.planteamiento,
+          })),
+        };
 
-      // Construye el payload para FA: encabezado + planteamiento por caso
-      const payload = {
-        pagesPerCase: 2, // FA = 2 páginas por caso
-        casos: validCases.map((c) => ({
-          encabezado: c.encabezado,
-          planteamiento: c.planteamiento,
-        })),
-      };
+        const res = await fetch("/api/fa/generar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      const res = await fetch("/api/fa/generar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+        const ct = res.headers.get("content-type") || "";
+        if (!res.ok) {
+          const errText = ct.includes("application/json") ? JSON.stringify(await res.json()) : await res.text();
+          throw new Error(`HTTP ${res.status} ${res.statusText} — ${errText}`);
+        }
 
-      const ct = res.headers.get("content-type") || "";
-      if (!res.ok) {
-        const errText = ct.includes("application/json") ? JSON.stringify(await res.json()) : await res.text();
-        throw new Error(`HTTP ${res.status} ${res.statusText} — ${errText}`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `FA_${data?.concurso || "formulario"}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
       }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `FA_${data?.concurso || "formulario"}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error(e);
-      alert("No se pudo generar el PDF de FA. Revisa consola para más detalles.");
+    } catch (e: any) {
+      console.error('Error generando FA:', e);
+      setError(e?.message || 'No se pudo generar el PDF de FA');
     } finally {
       setDownloading(false);
     }
   };
 
+  // En modo batch, usar estilos específicos
+  if (isBatchMode) {
+    return (
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={handleDownload}
+          disabled={disabled}
+          className="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {downloading ? 'Generando FA...' : `📄 Descargar FA en lote (${selectedFolios.length} folios)`}
+        </button>
+        {error && (
+          <p className="text-sm text-red-600">{error}</p>
+        )}
+      </div>
+    );
+  }
+
+  // Modo individual: estilo original
   return (
     <div className="flex justify-center items-center">
       <button
@@ -116,6 +160,9 @@ export default function DownloadFA() {
         </svg>
         {downloading ? "Generando..." : "PDF FA"}
       </button>
+      {error && (
+        <p className="text-sm text-red-600 mt-2 text-center">{error}</p>
+      )}
     </div>
   );
 }

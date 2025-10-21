@@ -118,10 +118,12 @@ export default function FormCasePractices({
   onChange,
   initialData,
   token, // ← NUEVO: token del link para el POST
+  isBatchMode = false, // ← NUEVO: indica si está en modo batch (oculta botón Finalizar)
 }: {
   onChange: (data: EstructuraPayload, isValid: boolean) => void;
   initialData?: Partial<Encabezado>;
   token: string;
+  isBatchMode?: boolean;
 }) {
   // Carga inicial desde localStorage (lazy initializer)
   const [data, setData] = useState<EstructuraPayload>(() => {
@@ -583,24 +585,29 @@ export default function FormCasePractices({
       {/* Validación global */}
       <p className={`text-sm ${allValid ? "text-emerald-700" : "text-red-700"}`}>
         {allValid
-          ? "Formulario completo. Ya puedes generar el PDF desde el botón 'PDF'."
+          ? isBatchMode
+            ? "✅ Formulario completo. Desplázate hacia abajo para descargar los documentos en lote."
+            : "Formulario completo. Ya puedes generar el PDF desde el botón 'Finalizar'."
           : "Completa los campos marcados con * y al menos 1 aspecto con puntaje (0–100) en cada caso. La suma total debe ser 100."}
       </p>
 
       {/* --- ACCIONES: Finalizar y Descarga --- */}
       <div className="mt-2 flex items-center gap-3 justify-end">
-        <button
-          type="button"
-          onClick={handleFinalize}
-          disabled={!allValid || submitting || !token}
-          className={`px-4 py-2 rounded-xl border transition
-            ${!allValid || submitting || !token
-              ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
-              : "bg-cyan-800 text-white border-cyan-800 hover:bg-cyan-700"}`}
-          title={!token ? "Falta token del link" : "Enviar formulario"}
-        >
-          {submitting ? "Generando PDF..." : "Finalizar"}
-        </button>
+        {/* Botón Finalizar: solo visible en modo individual (no batch) */}
+        {!isBatchMode && (
+          <button
+            type="button"
+            onClick={handleFinalize}
+            disabled={!allValid || submitting || !token}
+            className={`px-4 py-2 rounded-xl border transition
+              ${!allValid || submitting || !token
+                ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
+                : "bg-cyan-800 text-white border-cyan-800 hover:bg-cyan-700"}`}
+            title={!token ? "Falta token del link" : "Enviar formulario"}
+          >
+            {submitting ? "Generando PDF..." : "Finalizar"}
+          </button>
+        )}
 
         {downloadUrl && (
           <a

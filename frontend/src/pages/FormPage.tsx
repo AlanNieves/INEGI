@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, type PrefillPayload, type LinkVerify } from "../lib/api";
+import { useFolios } from "../contexts/FoliosContext";
 import FormCasePractices, {
   type EstructuraPayload,
 } from "../features/casos-practicos/FormCasePractices";
+import DownloadFE from "../features/fe/DownloadFE";
+import DownloadFA from "../features/fa/DownloadFA";
+import DownloadRespuestas from "../features/forms/DownloadRespuestas";
 
 type PrefillFlat = {
   convocatoria: string;
@@ -17,20 +21,31 @@ type PrefillFlat = {
 
 export default function FormPage() {
   const { token = "" } = useParams();
+  const { selectedFolios, setSelectedFolios } = useFolios();
   const [verif, setVerif] = useState<LinkVerify | null>(null);
   const [prefill, setPrefill] = useState<PrefillPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  
+  // 🆕 Estado del formulario para generación en lote
+  const [formData, setFormData] = useState<EstructuraPayload | null>(null);
 
-  // Log de cambios del formulario (editable)
+  // 🆕 Detectar si es modo batch desde el header del link
+  const isBatchMode = (verif?.header as any)?.isBatch || false;
+  const batchFolios = (verif?.header as any)?.folios || [];
+
+  // Guardar datos del formulario cuando son válidos
   const handleCasePracticesChange = (data: EstructuraPayload, isValid: boolean) => {
-    console.log("Datos del formulario de casos prácticos:", data, "Válido:", isValid);
+    if (isValid) {
+      setFormData(data);
+    }
   };
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       setErr(null);
+      
       try {
         // 1) Verificar token
         const v = await api.verifyLink(token);
@@ -39,6 +54,12 @@ export default function FormPage() {
           setErr(v.reason || "Link inválido o expirado");
           return;
         }
+        
+        // 🆕 Si es modo batch, cargar los folios en el contexto
+        if ((v.header as any)?.isBatch && (v.header as any)?.folios) {
+          setSelectedFolios((v.header as any).folios);
+        }
+        
         // 2) Prefill (campos planos desde el back)
         const p = await api.prefillExam(token);
         setPrefill(p);
@@ -111,12 +132,31 @@ export default function FormPage() {
   // Formulario
   return (
     <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow p-6">
-      
+      {/* 🆕 Banner informativo para modo batch */}
+      {isBatchMode && (selectedFolios.length > 0 || batchFolios.length > 0) && (
+        <div className="mb-6 p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl">
+          <h3 className="text-lg font-bold text-emerald-900 mb-2">
+            📋 Modo de Generación en Lote
+          </h3>
+          <p className="text-sm text-emerald-800">
+            Has seleccionado <strong>{selectedFolios.length || batchFolios.length} folios</strong>. 
+            Llena el formulario una vez y descarga los documentos en lote al final.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {(selectedFolios.length > 0 ? selectedFolios : batchFolios).map((folio: string, idx: number) => (
+              <span key={idx} className="px-2 py-1 bg-emerald-200 text-emerald-900 rounded text-xs font-mono">
+                {folio}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <FormCasePractices
         onChange={handleCasePracticesChange}
         token={token}
         key={token}
+        isBatchMode={isBatchMode}
         initialData={{
           // Estos 7 vienen prellenados y el backend los tomará como inmutables al submit
           convocatoria: readonlyData?.convocatoria ?? "",
@@ -134,6 +174,24 @@ export default function FormPage() {
           fechaElaboracion: new Date().toISOString().split("T")[0],
         }}
       />
+
+      {/* 🆕 Botones de descarga en lote (solo en modo batch) */}
+      {isBatchMode && formData && selectedFolios.length > 0 && (
+        <div className="mt-8 p-6 bg-gray-50 rounded-xl border-2 border-gray-200">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">
+            📦 Descargar Documentos en Lote
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Genera y descarga archivos ZIP con documentos para todos los folios seleccionados:
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <DownloadFE casos={formData.casos || []} />
+            <DownloadFA casos={formData.casos || []} />
+            <DownloadRespuestas casos={formData.casos || []} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -180,4 +180,20 @@ export const api = {
     const { data } = await http.post(`/consents/${encodeURIComponent(token)}`, body);
     return data;
   },
+
+  // 🆕 Generación en lote (ZIP)
+  async generarFELote(payload: { casos: any[]; folios: string[] }) {
+    const { data } = await http.post("/fe/generar-lote", payload, { responseType: 'blob' });
+    return data as Blob;
+  },
+
+  async generarFALote(payload: { casos: any[]; folios: string[] }) {
+    const { data } = await http.post("/fa/generar-lote", payload, { responseType: 'blob' });
+    return data as Blob;
+  },
+
+  async generarRespuestasLote(payload: { casos: any[]; folios: string[] }) {
+    const { data } = await http.post("/respuestas/generar-lote", payload, { responseType: 'blob' });
+    return data as Blob;
+  },
 };
