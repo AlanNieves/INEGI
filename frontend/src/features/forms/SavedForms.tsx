@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { api } from "../../lib/api";
+import { downloadZip } from "../../utils/downloadHelpers";
 
 /** Claves de almacenamiento (ojo: "from" es el que ya usa tu form) */
 const FORM_KEY = (token: string) => `inegi_cp_from_v2:${token}`;
@@ -214,6 +216,82 @@ export default function SavedForms() {
     }
   };
 
+  const handleArtefacts = async (token: string) => {
+    setError(null);
+    const form = readFormByToken(token);
+    if (!form) {
+      setError("No encontré el formulario en este navegador.");
+      return;
+    }
+
+    try {
+      setBusyToken(token);
+
+      // Preferir folios guardados en el índice (si existen)
+      const indexItem = items.find(it => it.token === token) as any | undefined;
+      let folios: string[] = [];
+      if (indexItem && Array.isArray(indexItem.folios) && indexItem.folios.length > 0) {
+        folios = indexItem.folios.map((f: any) => String(f));
+      } else {
+        // Construir lista de folios desde los casos (si hay varios)
+        folios = (form.casos || []).map((c: any) => c?.encabezado?.folio).filter((f: any) => !!f);
+      }
+
+      // Si los folios son placeholders tipo "LOTE (N folios)" o no existen,
+      // intentar recuperar la lista real de folios desde el prefill del link
+      // o desde el catálogo de aspirantes usando convocatoria/concurso.
+      const looksLikeLote = (arr: string[]) => arr.length === 0 || arr.some(s => typeof s === 'string' && s.toUpperCase().includes('LOTE'));
+
+      if (looksLikeLote(folios)) {
+        try {
+          // Intentar prefill (puede contener info de folios o datos para buscar aspirantes)
+          const prefill = await api.prefillExam((rows.find(it => it.token === token) || {}).token || token);
+
+          // prefill puede traer campos útiles
+          const maybeFolios = (prefill as any)?.header?.folios || (prefill as any)?.folios || (prefill as any)?.header?.folioList;
+          if (Array.isArray(maybeFolios) && maybeFolios.length > 0) {
+            folios = maybeFolios.map((f: any) => String(f));
+          } else {
+            // Si no hay folios explícitos, intentar obtener aspirantes por convocatoria/concurso
+            const conv = (prefill as any)?.header?.convocatoria || form.convocatoria || form.casos?.[0]?.encabezado?.convocatoria;
+            const conc = (prefill as any)?.header?.concurso || form.concurso || form.casos?.[0]?.encabezado?.concurso;
+            if (conv && conc) {
+              try {
+                const aspirantes = await api.listAspirantes(conv, conc);
+                if (Array.isArray(aspirantes) && aspirantes.length > 0) {
+                  folios = aspirantes.map((a: any) => a.folio).filter((f: any) => !!f);
+                }
+              } catch {}
+            }
+          }
+        } catch (err) {
+          // no crítico, seguimos y mostraremos error si no tenemos folios
+        }
+      }
+
+      if (folios.length === 0) {
+        setError("No encontré folios válidos en el formulario para generar artefactos. Si este formulario fue creado como lote, genera el ZIP desde el panel de Lote.");
+        return;
+      }
+
+      const header = {
+        convocatoria: (form as any).convocatoria || "",
+        concurso: (form as any).concurso || "",
+        unidadAdministrativa: (form as any).unidadAdministrativa || "",
+        puesto: (form as any).puesto || "",
+      };
+
+      const payload = { casos: form.casos, folios, header };
+      const blob = await api.generarArtefactosLote(payload as any);
+      const ts = Date.now();
+      await downloadZip(blob, `ARTIFACTS_${token}_${ts}.zip`);
+    } catch (e: any) {
+      setError(e?.message || "No se pudieron generar los artefactos.");
+    } finally {
+      setBusyToken(null);
+    }
+  };
+
   if (rows.length === 0) {
     return (
       <section className="w-full max-w-5xl mt-8">
@@ -255,6 +333,14 @@ export default function SavedForms() {
                 title="Descargar FE"
               >
                 FE
+              </button>
+              <button
+                onClick={() => handleArtefacts(r.token)}
+                disabled={!r.ok || busyToken === r.token}
+                className="px-3 py-2 rounded-xl border border-cyan-300 text-cyan-800 hover:bg-cyan-50 disabled:opacity-50"
+                title="Descargar artefactos (ZIP)"
+              >
+                Artefactos
               </button>
               <button
                 onClick={() => handleRespuestas(r.token)}

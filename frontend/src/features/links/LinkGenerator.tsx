@@ -1,7 +1,7 @@
 // src/features/links/LinkGenerator.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
+import { downloadZip } from '../../utils/downloadHelpers';
 import { useFolios } from "../../contexts/FoliosContext";
 
 /* ---------------------------- Tipos (flexibles) ---------------------------- */
@@ -103,8 +103,8 @@ function labelConvocatoria(c: Convocatoria) {
 /* --------------------------------- Componente -------------------------------- */
 
 export default function LinkGenerator() {
-  const navigate = useNavigate();
   const { setSelectedFolios } = useFolios();
+  const BATCH_KEY = '__lote';
   
   const [convocatorias, setConvocatorias] = useState<Convocatoria[]>([]);
   const [concursos, setConcursos] = useState<Concurso[]>([]);
@@ -115,14 +115,50 @@ export default function LinkGenerator() {
   const [convId, setConvId] = useState("");
   const [concId, setConcId] = useState("");
   const [selectedAspirantes, setSelectedAspirantes] = useState<Record<string, string>>({}); // plazaId -> aspiranteId
-  
-  // 🆕 Estado para multi-select de folios
-  const [selectedFoliosForBatch, setSelectedFoliosForBatch] = useState<Set<string>>(new Set());
 
   const [busy, setBusy] = useState(false);
   const [busyRow, setBusyRow] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, GenResult>>({}); // plaza._id -> result
+
+  // Leer casos desde localStorage (misma clave que usa DownloadFA/FE)
+  function readCasesFromStorage() {
+    try {
+      // 1) Intentar clave global (v1 del proyecto)
+      const GLOBAL_KEY = 'inegi_cp_form_v2';
+      const rawGlobal = localStorage.getItem(GLOBAL_KEY);
+      if (rawGlobal) {
+        try {
+          const data = JSON.parse(rawGlobal);
+          if (data && Array.isArray(data.casos) && data.casos.length > 0) return data;
+        } catch {}
+      }
+
+      // 2) Fallback: leer el índice de formularios guardados y cargar el más reciente
+      const INDEX_KEY = 'inegi_cp_index_v1';
+      const rawIndex = localStorage.getItem(INDEX_KEY);
+      if (!rawIndex) return null;
+      const idx = JSON.parse(rawIndex);
+      if (!Array.isArray(idx) || idx.length === 0) return null;
+
+      // En el índice los items se agregan al final; tomar el último (más reciente)
+      const last = idx[idx.length - 1];
+      const token = last?.token;
+      if (!token) return null;
+
+      const tokenKey = `inegi_cp_from_v2:${token}`; // nota: el form actual usa "from" en la clave
+      const rawToken = localStorage.getItem(tokenKey);
+      if (!rawToken) return null;
+      try {
+        const data = JSON.parse(rawToken);
+        if (data && Array.isArray(data.casos) && data.casos.length > 0) return data;
+      } catch {}
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
 
   /* ----------------------------- Carga catálogos ----------------------------- */
 
@@ -279,43 +315,17 @@ export default function LinkGenerator() {
     }
   };
 
-  /* ---------------------- 🆕 Funciones de multi-select ----------------------- */
+  /* ---------------------- Función para procesar TODOS los folios ----------------------- */
 
-  const handleToggleFolio = (_aspiranteId: string, folio: string) => {
-    setSelectedFoliosForBatch(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(folio)) {
-        newSet.delete(folio);
-      } else {
-        newSet.add(folio);
-      }
-      return newSet;
-    });
-  };
-
-  // 🆕 Toggle inteligente: selecciona todos o deselecciona todos según el estado actual
-  const handleToggleAllFolios = () => {
-    const allFolios = aspirantes.map(a => a.folio);
-    const allSelected = allFolios.every(folio => selectedFoliosForBatch.has(folio));
-    
-    if (allSelected) {
-      // Si todos están seleccionados, deseleccionar todos
-      setSelectedFoliosForBatch(new Set());
-    } else {
-      // Si no todos están seleccionados, seleccionar todos
-      setSelectedFoliosForBatch(new Set(allFolios));
-    }
-  };
-
-  const handleProceedWithSelectedFolios = async () => {
-    if (selectedFoliosForBatch.size === 0) {
-      alert("Selecciona al menos un folio para continuar");
-      return;
-    }
-
+  const handleProceedWithAllFolios = async () => {
     // Necesitamos los datos del encabezado de la convocatoria/concurso seleccionados
     if (!convId || !concId) {
       alert("Selecciona una convocatoria y concurso primero");
+      return;
+    }
+
+    if (aspirantes.length === 0) {
+      setError("No hay aspirantes disponibles");
       return;
     }
 
@@ -342,34 +352,50 @@ export default function LinkGenerator() {
       const unidadAdministrativa = getUnidad(primeraPlaza);
       const jefeNombre = getEspecialistaNombre(primeraPlaza, especialistasById);
 
-      // Crear el link con los folios en el prefill
-      const foliosArray = Array.from(selectedFoliosForBatch);
+      // Usar todos los folios disponibles
+      const foliosArray = aspirantes.map(a => a.folio);
+
       const body: any = {
         convocatoriaId: convId,
         concursoId: concId,
         plazaId: plazaCodigo,
         ttlHours: 48,
-        isBatch: true, // 🆕 Marcar como link de lote
-        folios: foliosArray, // 🆕 Enviar los folios seleccionados
+        isBatch: true,
+        folios: foliosArray,
         prefill: {
           convocatoria: convCode,
           concurso: concCode,
           plazaCodigo,
           puesto,
           unidadAdministrativa,
-          folio: `LOTE (${foliosArray.length} folios)`, // Indicador de lote
+          folio: `LOTE (${foliosArray.length} folios)`,
           jefeNombre,
           radicacion: (primeraPlaza as any).radicacion || "",
         },
       };
 
-      const res = await api.createLink(body);
-      
-      // Guardar los folios en el contexto global
-      setSelectedFolios(foliosArray);
-      
-      // Navegar al formulario con el token generado
-      navigate(`/form/${res.token}`);
+  const res = await api.createLink(body);
+
+  // Guardar los folios en el contexto global
+  setSelectedFolios(foliosArray);
+
+  // Guardar el resultado en la tabla de resultados para mostrar el link (no navegamos)
+  setResults(prev => ({ ...prev, [BATCH_KEY]: res }));
+      try {
+        // También registrar en el índice local para que aparezca en Historial
+        const INDEX_KEY = "inegi_cp_index_v1";
+        const raw = localStorage.getItem(INDEX_KEY);
+        const idx = raw ? (JSON.parse(raw) as any[]) : [];
+        idx.push({
+          token: res.token,
+          // No hay examId/responsesUrl todavía para lote; guardamos metadatos
+          nombreEspecialista: jefeNombre || "",
+          concurso: concCode || "",
+          folios: foliosArray,
+          savedAt: new Date().toISOString(),
+        });
+        localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
+      } catch {}
     } catch (e: any) {
       const serverMsg =
         e?.response?.data?.message ||
@@ -438,7 +464,7 @@ export default function LinkGenerator() {
 
       {convId && concId && (
         <>
-          {/* 🆕 Panel de selección múltiple de FOLIOS (independiente de plazas) */}
+          {/* 🆕 Panel de generación en lote — ahora usa TODOS los folios disponibles */}
           {aspirantes.length > 0 && (
             <div className="mb-8 p-6 border-2 border-emerald-400 rounded-2xl bg-gradient-to-r from-emerald-50 to-cyan-50 shadow-lg">
               <div className="flex items-start justify-between mb-3">
@@ -448,79 +474,91 @@ export default function LinkGenerator() {
                     Generación en Lote
                   </h3>
                   <p className="text-sm text-emerald-800 font-medium">
-                    Llena el formulario <strong>una sola vez</strong> y genera documentos para múltiples folios
+                    Llena el formulario <strong>una sola vez</strong> y genera documentos para todos los folios de la convocatoria.
                   </p>
                 </div>
                 <span className="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-full">
                   BATCH MODE
                 </span>
               </div>
+
               <p className="text-sm text-gray-700 mb-4 pl-8">
-                Selecciona los folios de aspirantes que deseas procesar. El sistema creará un link especial que generará documentos para todos los folios seleccionados.
+                El sistema procesará automáticamente <strong>todos</strong> los folios disponibles para la convocatoria y concurso seleccionados.
               </p>
-              
-              <div className="flex gap-3 mb-4 pl-8">
-                <button
-                  onClick={handleToggleAllFolios}
-                  className={`px-5 py-2.5 text-white rounded-lg text-sm font-semibold transition-all shadow-md hover:shadow-lg ${
-                    aspirantes.length > 0 && aspirantes.every(a => selectedFoliosForBatch.has(a.folio))
-                      ? 'bg-gray-600 hover:bg-gray-700'
-                      : 'bg-emerald-600 hover:bg-emerald-700'
-                  }`}
-                >
-                  {aspirantes.length > 0 && aspirantes.every(a => selectedFoliosForBatch.has(a.folio))
-                    ? `☐ Deseleccionar todos (${aspirantes.length})`
-                    : `☑️ Seleccionar todos (${aspirantes.length})`
-                  }
-                </button>
-                <div className="text-sm text-gray-600 flex items-center">
+
+              <div className="flex items-center gap-4 pl-8">
+                <div className="text-sm text-gray-600">
                   Total: <strong className="ml-1 text-emerald-700">{aspirantes.length}</strong> aspirantes disponibles
                 </div>
+                  <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleProceedWithAllFolios}
+                    disabled={busy}
+                    className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {busy ? 'Generando...' : 'Generar link'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (busy) return;
+                      if (!convId || !concId) { alert('Selecciona convocatoria y concurso'); return; }
+                      if (aspirantes.length === 0) { alert('No hay aspirantes'); return; }
+                      try {
+                        setBusy(true);
+                        setError(null);
+                        const folios = aspirantes.map(a => a.folio);
+                        // Leer casos guardados (si existen) para usar en FA/FE/Respuestas
+                        const stored = readCasesFromStorage();
+                        const casos = stored?.casos || [];
+                        // Header para Respuestas/FE/FA: usar valores de la convocatoria/primer caso
+                        const header = {
+                          convocatoria: convocatorias.find(c => c._id === convId)?.codigo || '',
+                          concurso: concursos.find(c => c._id === concId)?.codigo || '',
+                          ...(stored ? { unidadAdministrativa: stored.unidadAdministrativa, puesto: stored.puesto } : {})
+                        };
+                        const blob = await api.generarArtefactosLote({ casos, folios, header });
+                        const ts = Date.now();
+                        await downloadZip(blob, `ARTIFACTS_lote_${ts}.zip`);
+                      } catch (e: any) {
+                        console.error('Error generando artefactos lote:', e);
+                        setError(e?.message || 'No se pudo generar los artefactos');
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    disabled={busy}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Descargar artefactos (ZIP)
+                  </button>
+                  </div>
               </div>
 
-              {/* Lista de folios con checkboxes */}
-              <div className="bg-white p-5 rounded-xl border-2 border-gray-200 shadow-sm max-h-80 overflow-y-auto mb-5 ml-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {aspirantes.map((asp) => (
-                    <label
-                      key={asp._id}
-                      className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all border ${
-                        selectedFoliosForBatch.has(asp.folio)
-                          ? 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100'
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
-                      }`}
+              {error && (
+                <p className="text-sm text-red-600 mt-3 pl-8">{error}</p>
+              )}
+
+              {/* Mostrar link generado para el lote (igual que en la tabla inferior) */}
+              {results[BATCH_KEY] && (
+                <div className="mt-4 pl-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                    <a
+                      className="text-blue-600 hover:text-blue-800 font-mono text-sm break-all underline decoration-2"
+                      href={(results as any)[BATCH_KEY].url}
+                      target="_blank"
+                      rel="noreferrer"
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedFoliosForBatch.has(asp.folio)}
-                        onChange={() => handleToggleFolio(asp._id, asp.folio)}
-                        className="w-4 h-4 cursor-pointer accent-emerald-600"
-                      />
-                      <span className={`text-sm ${selectedFoliosForBatch.has(asp.folio) ? 'font-semibold text-emerald-900' : 'text-gray-700'}`}>
-                        {asp.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {selectedFoliosForBatch.size > 0 && (
-                <div className="bg-gradient-to-r from-emerald-600 to-cyan-600 p-5 rounded-xl shadow-lg ml-8">
-                  <div className="flex items-center justify-between">
-                    <div className="text-white">
-                      <p className="text-sm font-medium opacity-90 mb-1">
-                        Listo para procesar
-                      </p>
-                      <p className="text-2xl font-bold">
-                        ✅ {selectedFoliosForBatch.size} folio{selectedFoliosForBatch.size !== 1 ? 's' : ''} seleccionado{selectedFoliosForBatch.size !== 1 ? 's' : ''}
-                      </p>
+                      {(results as any)[BATCH_KEY].url}
+                    </a>
+                    <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                      <button
+                        className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg font-medium transition-colors"
+                        onClick={() => copy((results as any)[BATCH_KEY].url)}
+                        title="Copiar al portapapeles"
+                      >
+                        📋 Copiar
+                      </button>
                     </div>
-                    <button
-                      onClick={handleProceedWithSelectedFolios}
-                      className="px-8 py-4 bg-white text-emerald-700 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl text-lg"
-                    >
-                      Continuar →
-                    </button>
                   </div>
                 </div>
               )}

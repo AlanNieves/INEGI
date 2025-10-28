@@ -13,6 +13,8 @@ import aspirantesRouter from './aspirantes/aspirantes.router';
 import estructuraRouter from './estructura/estructura.router';
 import faRouter from './fa/fa.router';
 import feRouter from './fe/fe.router';
+import respuestasRouter from './respuestas/respuestas.router';
+import artifactsRouter from './artifacts/artifacts.router';
 
 export const apiRouter = Router();
 
@@ -37,3 +39,5 @@ apiRouter.use('/consents', consentsRouter);
 apiRouter.use('/estructura', estructuraRouter);
 apiRouter.use('/fa', faRouter);
 apiRouter.use('/fe', feRouter);
+apiRouter.use('/respuestas', respuestasRouter);
+apiRouter.use('/artifacts', artifactsRouter);

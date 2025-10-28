@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import archiver from 'archiver';
 import { generarFE } from '../../services/fe.service';
 
 const router = Router();
@@ -78,4 +79,57 @@ router.post('/generar', async (req, res, next) => {
   }
 });
 
+// Generar lote: un Excel por folio y devolver ZIP
+router.post('/generar-lote', async (req, res, next) => {
+  try {
+    const { casos, folios } = req.body;
+    if (!casos || !Array.isArray(casos) || casos.length === 0) {
+      return res.status(400).json({ error: 'Se requiere al menos un caso' });
+    }
+    if (!folios || !Array.isArray(folios) || folios.length === 0) {
+      return res.status(400).json({ error: 'Se requiere una lista de folios' });
+    }
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="FE_lote_${Date.now()}.zip"`);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err: any) => { console.error('Archiver error:', err); try { res.status(500).end(); } catch {} });
+    archive.pipe(res as any);
+
+    for (let i = 0; i < folios.length; i++) {
+      const folio = String(folios[i] || 'sin_folio');
+
+      // Construir encabezado con folio
+      const primerCaso = casos[0];
+      const encabezado = primerCaso.encabezado || {};
+      const feArgs = {
+        encabezado: {
+          convocatoria: encabezado.convocatoria || '',
+          unidadAdministrativa: encabezado.unidadAdministrativa || '',
+          concurso: encabezado.concurso || '',
+          puesto: encabezado.puesto || '',
+          codigoPuesto: encabezado.codigoPuesto || '',
+          folio: folio,
+          modalidad: encabezado.modalidad || '',
+          duracionMin: encabezado.duracionMin || 0,
+          nombreEspecialista: encabezado.nombreEspecialista || '',
+          puestoEspecialista: encabezado.puestoEspecialista || ''
+        },
+        casos: casos.map((c: any) => ({ aspectos: c.aspectos || [] }))
+      };
+
+      const excelBuffer = await generarFE(feArgs as any);
+      const filename = `FE_${folio || 'formulario'}.xlsx`.replace(/\s+/g, '_');
+      archive.append(excelBuffer, { name: filename });
+    }
+
+    await archive.finalize();
+  } catch (err) {
+    console.error('Error generando lote FE:', err);
+    res.status(500).json({ error: 'Error interno generando lote FE' });
+  }
+});
+
 export default router;
+
