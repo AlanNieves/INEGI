@@ -1,7 +1,6 @@
 // src/features/links/LinkGenerator.tsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
-import { downloadZip } from '../../utils/downloadHelpers';
 import { useFolios } from "../../contexts/FoliosContext";
 
 /* ---------------------------- Tipos (flexibles) ---------------------------- */
@@ -114,10 +113,9 @@ export default function LinkGenerator() {
 
   const [convId, setConvId] = useState("");
   const [concId, setConcId] = useState("");
-  const [selectedAspirantes, setSelectedAspirantes] = useState<Record<string, string>>({}); // plazaId -> aspiranteId
+  // per-plaza aspirante selection removed from UI; keep placeholder in case needed later
 
   const [busy, setBusy] = useState(false);
-  const [busyRow, setBusyRow] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, GenResult>>({}); // plaza._id -> result
 
@@ -198,9 +196,8 @@ export default function LinkGenerator() {
 
   useEffect(() => {
     (async () => {
-      setPlazas([]);
-      setAspirantes([]);
-      setSelectedAspirantes({}); // Limpiar selecciones anteriores
+  setPlazas([]);
+  setAspirantes([]);
       if (!convId || !concId) return;
       
       try {
@@ -228,82 +225,7 @@ export default function LinkGenerator() {
     return map;
   }, [especialistas]);
 
-  /* -------------------------------- Generar link ----------------------------- */
-
-  const handleGenerate = async (plaza: Plaza) => {
-    setError(null);
-    
-    // Validar que se haya seleccionado un aspirante
-    const selectedAspiranteId = selectedAspirantes[plaza._id];
-    if (!selectedAspiranteId) {
-      setError("Debes seleccionar un aspirante/folio para esta plaza.");
-      return;
-    }
-    
-    const selectedAspirante = aspirantes.find(a => a._id === selectedAspiranteId);
-    if (!selectedAspirante) {
-      setError("Aspirante seleccionado no encontrado.");
-      return;
-    }
-
-    setBusy(true);
-    setBusyRow(plaza._id);
-
-    try {
-      // Códigos humanos de los selects
-      const conv = convocatorias.find((c) => c._id === convId);
-      const conc = concursos.find((c) => c._id === concId);
-
-      const convCode = conv?.codigo || conv?.nombre || "";
-      const concCode = conc?.codigo || conc?.nombre || "";
-
-      const plazaCodigo = getPlazaCodigo(plaza);
-      const puesto = getPuesto(plaza);
-      const unidadAdministrativa = getUnidad(plaza);
-
-      // Tomar especialista real desde la plaza + catálogo
-      
-      const jefeNombre = getEspecialistaNombre(plaza, especialistasById);
-
-      if (!convId || !concId || !plazaCodigo) {
-        setError("Faltan datos mínimos (convocatoria, concurso o código de plaza).");
-        return;
-      }
-
-      const body: any = {
-        convocatoriaId: convId, // _id/hash del select (tal como viene del catálogo)
-        concursoId: concId,     // _id/hash del select
-        plazaId: plazaCodigo,   // código robusto de la plaza
-        aspiranteId: selectedAspirante._id, // 🆕 ID del aspirante seleccionado
-        ttlHours: 48,
-        prefill: {
-          convocatoria: convCode,
-          concurso: concCode,
-          plazaCodigo,
-          puesto,
-          unidadAdministrativa,
-          folio: selectedAspirante.folio, // 🆕 Folio del aspirante seleccionado
-          jefeNombre,
-          radicacion: (plaza as any).radicacion || "",
-        },
-      };
-
-      // No enviamos especialistaId, el backend creará el especialista con el jefeNombre
-      // que está incluido en el prefill
-
-      const res = await api.createLink(body);
-      setResults((prev) => ({ ...prev, [plaza._id]: res }));
-    } catch (e: any) {
-      const serverMsg =
-        e?.response?.data?.message ||
-        e?.data?.message ||
-        e?.message;
-      setError(serverMsg || "No se pudo generar el link.");
-    } finally {
-      setBusy(false);
-      setBusyRow(null);
-    }
-  };
+  /* (Per-plaza generate UI removed) */
 
   const copy = async (text: string) => {
     try {
@@ -486,51 +408,62 @@ export default function LinkGenerator() {
                 El sistema procesará automáticamente <strong>todos</strong> los folios disponibles para la convocatoria y concurso seleccionados.
               </p>
 
+              {/* Tabla completa de plazas (igual que 'Generación Individual') colocada arriba */}
+              <div className="mt-4 pl-8">
+                <div className="overflow-x-auto shadow-md rounded-xl">
+                  <table className="min-w-full text-left border-collapse">
+                    <thead className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Plaza</th>
+                        <th className="px-4 py-3 font-semibold">Puesto</th>
+                        <th className="px-4 py-3 font-semibold">Unidad</th>
+                        <th className="px-4 py-3 font-semibold">Jefe de plaza</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                      {plazas.length === 0 && (
+                        <tr>
+                            <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                              <div className="flex flex-col items-center gap-2">
+                                <span className="text-4xl opacity-30">📭</span>
+                                <p>No hay plazas para esta combinación.</p>
+                              </div>
+                            </td>
+                          </tr>
+                      )}
+
+                      {plazas.map((p) => {
+                        const codigo = getPlazaCodigo(p);
+                        const puesto = getPuesto(p);
+                        const unidad = getUnidad(p);
+                        const espName = getEspecialistaNombre(p, especialistasById) || "—";
+
+                        return (
+                          <tr key={p._id} className="border-t border-gray-200 hover:bg-blue-50 transition-colors">
+                                <td className="px-4 py-3 font-mono text-sm">{codigo || "—"}</td>
+                                <td className="px-4 py-3 text-sm">{puesto || "—"}</td>
+                                <td className="px-4 py-3 text-sm">{unidad || "—"}</td>
+                                <td className="px-4 py-3 text-sm">{espName}</td>
+                              </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <div className="flex items-center gap-4 pl-8">
                 <div className="text-sm text-gray-600">
                   Total: <strong className="ml-1 text-emerald-700">{aspirantes.length}</strong> aspirantes disponibles
                 </div>
                   <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleProceedWithAllFolios}
-                    disabled={busy}
-                    className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {busy ? 'Generando...' : 'Generar link'}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (busy) return;
-                      if (!convId || !concId) { alert('Selecciona convocatoria y concurso'); return; }
-                      if (aspirantes.length === 0) { alert('No hay aspirantes'); return; }
-                      try {
-                        setBusy(true);
-                        setError(null);
-                        const folios = aspirantes.map(a => a.folio);
-                        // Leer casos guardados (si existen) para usar en FA/FE/Respuestas
-                        const stored = readCasesFromStorage();
-                        const casos = stored?.casos || [];
-                        // Header para Respuestas/FE/FA: usar valores de la convocatoria/primer caso
-                        const header = {
-                          convocatoria: convocatorias.find(c => c._id === convId)?.codigo || '',
-                          concurso: concursos.find(c => c._id === concId)?.codigo || '',
-                          ...(stored ? { unidadAdministrativa: stored.unidadAdministrativa, puesto: stored.puesto } : {})
-                        };
-                        const blob = await api.generarArtefactosLote({ casos, folios, header });
-                        const ts = Date.now();
-                        await downloadZip(blob, `ARTIFACTS_lote_${ts}.zip`);
-                      } catch (e: any) {
-                        console.error('Error generando artefactos lote:', e);
-                        setError(e?.message || 'No se pudo generar los artefactos');
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                    disabled={busy}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Descargar artefactos (ZIP)
-                  </button>
+                    <button
+                      onClick={handleProceedWithAllFolios}
+                      disabled={busy}
+                      className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {busy ? 'Generando...' : 'Generar link'}
+                    </button>
                   </div>
               </div>
 
@@ -538,6 +471,7 @@ export default function LinkGenerator() {
                 <p className="text-sm text-red-600 mt-3 pl-8">{error}</p>
               )}
 
+              
               {/* Mostrar link generado para el lote (igual que en la tabla inferior) */}
               {results[BATCH_KEY] && (
                 <div className="mt-4 pl-8">
@@ -565,128 +499,7 @@ export default function LinkGenerator() {
             </div>
           )}
 
-          {/* Separador visual */}
-          {aspirantes.length > 0 && (
-            <div className="relative mb-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t-2 border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-gray-50 text-gray-500 font-medium">ó genera links individuales</span>
-              </div>
-            </div>
-          )}
-
-          {/* Tabla de Plazas (para generar links individuales) */}
-          <div className="mb-4">
-            <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-              <span className="text-2xl">🔗</span>
-              Generación Individual por Plaza
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Genera links individuales para cada aspirante. Cada link permitirá llenar el formulario para un solo folio.
-            </p>
-          </div>
-
-        <div className="overflow-x-auto shadow-md rounded-xl">
-          <table className="min-w-full text-left border-collapse">
-            <thead className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Plaza</th>
-                <th className="px-4 py-3 font-semibold">Puesto</th>
-                <th className="px-4 py-3 font-semibold">Unidad</th>
-                <th className="px-4 py-3 font-semibold">Aspirante/Folio</th>
-                <th className="px-4 py-3 font-semibold">Jefe de plaza</th>
-                <th className="px-4 py-3 font-semibold">Acción</th>
-                <th className="px-4 py-3 font-semibold">Link</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white">
-              {plazas.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    <div className="flex flex-col items-center gap-2">
-                      <span className="text-4xl opacity-30">📭</span>
-                      <p>No hay plazas para esta combinación.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-
-              {plazas.map((p) => {
-                const codigo = getPlazaCodigo(p);
-                const puesto = getPuesto(p);
-                const unidad = getUnidad(p);
-                const espName = getEspecialistaNombre(p, especialistasById) || "—";
-
-                const result = results[p._id];
-
-                return (
-                  <tr key={p._id} className="border-t border-gray-200 hover:bg-blue-50 transition-colors">
-                    <td className="px-4 py-3 font-mono text-sm">{codigo || "—"}</td>
-                    <td className="px-4 py-3 text-sm">{puesto || "—"}</td>
-                    <td className="px-4 py-3 text-sm">{unidad || "—"}</td>
-                    <td className="px-4 py-3">
-                      {aspirantes.length > 0 ? (
-                        <select
-                          className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                          value={selectedAspirantes[p._id] || ""}
-                          onChange={(e) => setSelectedAspirantes(prev => ({
-                            ...prev,
-                            [p._id]: e.target.value
-                          }))}
-                        >
-                          <option value="">Seleccionar aspirante...</option>
-                          {aspirantes.map(asp => (
-                            <option key={asp._id} value={asp._id}>
-                              {asp.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-gray-400 text-sm italic">Sin aspirantes</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm">{espName}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors shadow-sm"
-                        onClick={() => handleGenerate(p)}
-                        disabled={busy || busyRow === p._id || !selectedAspirantes[p._id]}
-                        title={!selectedAspirantes[p._id] ? "Selecciona un aspirante primero" : "Generar link con validez de 48 horas"}
-                      >
-                        {busyRow === p._id ? "⏳ Generando..." : "Generar link"}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      {result ? (
-                        <div className="flex items-center gap-2">
-                          <a
-                            className="text-blue-600 hover:text-blue-800 font-medium text-sm break-all underline decoration-2"
-                            href={result.url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Ver link →
-                          </a>
-                          <button
-                            className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg font-medium transition-colors"
-                            onClick={() => copy(result.url)}
-                            title="Copiar al portapapeles"
-                          >
-                            📋 Copiar
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm italic">Sin generar</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+          
         </>
       )}
     </section>

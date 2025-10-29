@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
-import { downloadZip } from "../../utils/downloadHelpers";
 
 /** Claves de almacenamiento (ojo: "from" es el que ya usa tu form) */
 const FORM_KEY = (token: string) => `inegi_cp_from_v2:${token}`;
@@ -282,9 +281,31 @@ export default function SavedForms() {
       };
 
       const payload = { casos: form.casos, folios, header };
-      const blob = await api.generarArtefactosLote(payload as any);
+
+      // Usar fetch directo para poder inspeccionar mejor la respuesta y el content-type
+      const res = await fetch("/api/artifacts/generar-lote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const ct = res.headers.get("content-type") || "";
+      if (!res.ok) {
+        const errText = ct.includes("application/json") ? JSON.stringify(await res.json()) : await res.text();
+        throw new Error(`Artefactos — ${res.status} ${res.statusText} — ${errText}`);
+      }
+
+      // Esperamos un blob ZIP
+      const blob = await res.blob();
       const ts = Date.now();
-      await downloadZip(blob, `ARTIFACTS_${token}_${ts}.zip`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ARTIFACTS_${token}_${ts}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (e: any) {
       setError(e?.message || "No se pudieron generar los artefactos.");
     } finally {

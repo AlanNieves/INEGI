@@ -104,7 +104,6 @@ export type Artifacts = {
   receiptPdfUrl?: string;
 };
 
-/** ------------------ API de alto nivel ------------------ **/
 export const api = {
   // Catálogos
   async listConvocatorias() {
