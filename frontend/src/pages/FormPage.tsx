@@ -5,6 +5,7 @@ import { useFolios } from "../contexts/FoliosContext";
 import FormCasePractices, {
   type EstructuraPayload,
 } from "../features/casos-practicos/FormCasePractices";
+import PrivacyModal from "../components/PrivacyModal";
 import DownloadFE from "../features/fe/DownloadFE";
 import DownloadFA from "../features/fa/DownloadFA";
 import DownloadRespuestas from "../features/forms/DownloadRespuestas";
@@ -29,6 +30,11 @@ export default function FormPage() {
   
   // 🆕 Estado del formulario para generación en lote
   const [formData, setFormData] = useState<EstructuraPayload | null>(null);
+
+  // Estado para controlar el aviso de privacidad obligatorio
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [privacyError, setPrivacyError] = useState<string | null>(null);
+  const [privacySubmitting, setPrivacySubmitting] = useState(false);
 
   // 🆕 Detectar si es modo batch desde el header del link
   const isBatchMode = (verif?.header as any)?.isBatch || false;
@@ -72,6 +78,43 @@ export default function FormPage() {
     })();
   }, [token]);
 
+  // Mostrar el aviso de privacidad justo al entrar, solo si el link es válido
+  useEffect(() => {
+    try {
+      if (!loading && verif?.valid) {
+        const key = `consent:${token}`;
+        const seen = localStorage.getItem(key) === "1";
+        setPrivacyOpen(!seen);
+      }
+    } catch {
+      setPrivacyOpen(true);
+    }
+  }, [loading, verif, token]);
+
+  // Handler cuando el usuario acepta el aviso (envía al backend y persiste local)
+  const handleAcceptPrivacy = async ({ fullName }: { fullName: string }) => {
+    if (privacySubmitting) return; // evitar llamadas concurrentes
+    setPrivacyError(null);
+    if (!token) {
+      setPrivacyError("Falta token para registrar el consentimiento.");
+      return;
+    }
+    setPrivacySubmitting(true);
+    try {
+  // El backend valida el campo `tipo` contra un enum; usar un valor permitido.
+  // Valores válidos según backend: 'uso_app' | 'conclusion_examen'
+  await api.postConsent(token, { tipo: "uso_app", nombreDeclarante: fullName, aceptado: true });
+      try {
+        localStorage.setItem(`consent:${token}`, "1");
+      } catch {}
+      setPrivacyOpen(false);
+    } catch (e: any) {
+      setPrivacyError(e?.response?.data?.message || e?.message || "No se pudo enviar el consentimiento.");
+    } finally {
+      setPrivacySubmitting(false);
+    }
+  };
+
   // Preferimos los 6 campos planos de /api/exams/prefill
   // y caemos al header anidado de verify si hiciera falta.
   const readonlyData: PrefillFlat | null = useMemo(() => {
@@ -113,6 +156,24 @@ export default function FormPage() {
     };
   }, [prefill, verif]);
 
+  // Memoizar initialData para evitar recrear el objeto en cada render
+  const initialDataMemo = useMemo(() => ({
+    // Estos 7 vienen prellenados y el backend los tomará como inmutables al submit
+    convocatoria: readonlyData?.convocatoria ?? "",
+    concurso: readonlyData?.concurso ?? "",
+    unidadAdministrativa: readonlyData?.unidadAdministrativa ?? "",
+    puesto: readonlyData?.puesto ?? "",
+    codigoPuesto: readonlyData?.codigoPuesto ?? "",
+    nombreEspecialista: readonlyData?.nombreEspecialista ?? "",
+    folio: readonlyData?.folio ?? "",
+
+    // Valores por defecto del examen (editables por el especialista)
+    modalidad: "Escrita",
+    duracionMin: 60,
+    puestoEspecialista: "",
+    fechaElaboracion: new Date().toISOString().split("T")[0],
+  }), [readonlyData]);
+
   if (loading) {
     return <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow p-6">Cargando…</div>;
   }
@@ -132,6 +193,18 @@ export default function FormPage() {
   // Formulario
   return (
     <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow p-6">
+      {/* Aviso de privacidad obligatorio (no se puede cerrar sin aceptar) */}
+      <PrivacyModal
+        open={privacyOpen}
+        initialName={readonlyData?.nombreEspecialista ?? ""}
+        onAccept={handleAcceptPrivacy}
+        enforceAccept={true}
+      />
+      {privacyError && (
+        <div className="mb-4">
+          <p className="text-sm text-red-700">{privacyError}</p>
+        </div>
+      )}
       {/* 🆕 Banner informativo para modo batch */}
       {isBatchMode && (selectedFolios.length > 0 || batchFolios.length > 0) && (
         <div className="mb-6 p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl">
@@ -157,22 +230,7 @@ export default function FormPage() {
         token={token}
         key={token}
         isBatchMode={isBatchMode}
-        initialData={{
-          // Estos 7 vienen prellenados y el backend los tomará como inmutables al submit
-          convocatoria: readonlyData?.convocatoria ?? "",
-          concurso: readonlyData?.concurso ?? "",
-          unidadAdministrativa: readonlyData?.unidadAdministrativa ?? "",
-          puesto: readonlyData?.puesto ?? "",
-          codigoPuesto: readonlyData?.codigoPuesto ?? "",
-          nombreEspecialista: readonlyData?.nombreEspecialista ?? "",
-          folio: readonlyData?.folio ?? "",
-
-          // Valores por defecto del examen (editables por el especialista)
-          modalidad: "Escrita",
-          duracionMin: 60,
-          puestoEspecialista: "",
-          fechaElaboracion: new Date().toISOString().split("T")[0],
-        }}
+        initialData={initialDataMemo}
       />
 
       {/* 🆕 Botones de descarga en lote (solo en modo batch) */}

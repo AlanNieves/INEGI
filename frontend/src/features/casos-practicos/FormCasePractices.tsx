@@ -307,7 +307,11 @@ export default function FormCasePractices({
       c.aspectos.every(
         (a) => !!a.descripcion.trim() && Number.isFinite(a.puntaje) && a.puntaje >= 0 && a.puntaje <= 100
       );
-    return reqText && reqDur && reqAspectos;
+      // La suma de puntajes por caso debe ser exactamente 100
+      const total = c.aspectos.reduce((acc, a) => acc + (Number.isFinite(a.puntaje) ? a.puntaje : 0), 0);
+      const reqTotal = total === 100;
+
+      return reqText && reqDur && reqAspectos && reqTotal;
   };
 
   const allValid = useMemo(() => data.casos.every(isCaseValid), [data]);

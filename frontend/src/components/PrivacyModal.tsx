@@ -16,6 +16,8 @@ export default function PrivacyModal({
 }: PrivacyModalProps) {
   const [fullName, setFullName] = useState(initialName);
   const [checked, setChecked] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const firstFocusRef = useRef<HTMLInputElement | null>(null);
 
@@ -85,10 +87,20 @@ export default function PrivacyModal({
 
   const canAccept = fullName.trim().length > 2 && checked;
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canAccept) return;
-    onAccept({ fullName: fullName.trim() });
+  const onSubmit = async (e: React.FormEvent | MouseEvent) => {
+    if (e && typeof (e as Event).preventDefault === "function") (e as Event).preventDefault();
+    if (!canAccept || submitting) return;
+    setLocalError(null);
+    setSubmitting(true);
+    try {
+      // Aceptar puede ser sync o async
+      await Promise.resolve(onAccept({ fullName: fullName.trim() }));
+    } catch (err: any) {
+      setLocalError(err?.message || "Error al aceptar el aviso. Intenta de nuevo.");
+      // no cerramos el modal
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!open || !portalEl) return null;
@@ -101,14 +113,14 @@ export default function PrivacyModal({
       aria-labelledby="privacy-title"
       aria-describedby="privacy-desc"
     >
-      <div ref={dialogRef} className="mx-4 w-full max-w-xl rounded-2xl bg-white shadow-2xl">
-        <form className="px-6 py-5" onSubmit={onSubmit}>
-          <h2 id="privacy-title" className="text-xl font-semibold text-gray-900">
+      <div ref={dialogRef} className="mx-4 w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+        <form className="px-8 py-8 md:px-12 md:py-10" onSubmit={onSubmit}>
+          <h2 id="privacy-title" className="text-2xl md:text-3xl font-semibold text-gray-900">
             Aviso de privacidad
           </h2>
 
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="fullName">
+          <div className="mt-6">
+            <label className="block text-sm md:text-base font-medium text-gray-700" htmlFor="fullName">
               Nombre completo
             </label>
             <input
@@ -118,18 +130,18 @@ export default function PrivacyModal({
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Escribe tu nombre completo"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          <p id="privacy-desc" className="mt-4 text-sm leading-6 text-gray-700">
+          <p id="privacy-desc" className="mt-4 text-sm md:text-base leading-7 text-gray-700">
             Yo, <span className="font-semibold">{fullName || "[Nombre completo]"}</span>, en mi calidad de especialista,
             reconozco y acepto que es mi responsabilidad garantizar la confidencialidad de la información relacionada con
             este proceso. Ningún servidor público ajeno al mismo podrá tener acceso a su contenido, salvo en los casos
             expresamente autorizados conforme a la normativa aplicable.
           </p>
 
-          <label className="mt-5 flex items-start gap-3 text-sm text-gray-700">
+          <label className="mt-6 flex items-start gap-3 text-sm md:text-base text-gray-700">
             <input
               type="checkbox"
               checked={checked}
@@ -141,16 +153,26 @@ export default function PrivacyModal({
             </span>
           </label>
 
-          <div className="mt-6 flex items-center justify-end gap-3">
+          {localError && <p className="mt-4 text-sm text-red-700">{localError}</p>}
+
+          {!canAccept && (
+            <p className="mt-3 text-sm text-orange-700">
+              Para continuar debes:
+              <span className="block ml-4">• Escribir tu nombre completo (mínimo 3 caracteres)</span>
+              <span className="block ml-4">• Marcar la casilla de aceptación del aviso</span>
+            </p>
+          )}
+
+          <div className="mt-8 flex items-center justify-end gap-3">
             {/* sin botón de cerrar; solo se sale aceptando */}
             <button
               type="submit"
-              disabled={!canAccept}
-              className={`inline-flex items-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition ${
-                canAccept ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-300 cursor-not-allowed"
+              disabled={!canAccept || submitting}
+              className={`inline-flex items-center rounded-lg px-6 py-3 text-base font-semibold text-white transition ${
+                !canAccept || submitting ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
               }`}
             >
-              Aceptar y continuar
+              {submitting ? "Aceptando…" : "Aceptar y continuar"}
             </button>
           </div>
         </form>

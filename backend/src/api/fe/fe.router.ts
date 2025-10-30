@@ -19,7 +19,7 @@ router.post('/generar', async (req, res, next) => {
         console.log(`- Tiene encabezado: ${!!caso.encabezado}`);
         console.log(`- Aspectos: ${caso.aspectos ? caso.aspectos.length : 'undefined'}`);
         if (caso.aspectos) {
-          caso.aspectos.forEach((aspecto, aspIndex) => {
+          caso.aspectos.forEach((aspecto: any, aspIndex: number) => {
             console.log(`  Aspecto ${aspIndex + 1}: "${aspecto.descripcion}" (${aspecto.puntaje}%)`);
           });
         }
