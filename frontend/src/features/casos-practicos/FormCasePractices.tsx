@@ -261,7 +261,7 @@ export default function FormCasePractices({
       return { ...d, casos };
     });
 
-  const removeCase = (i: number) =>
+  const removeCase = (i: number) => {
     setData((d) => {
       if (d.casos.length <= 1) return d; // siempre queda al menos 1
       const casos = d.casos.slice();
@@ -270,6 +270,14 @@ export default function FormCasePractices({
       const h = casos[0].encabezado;
       return { ...h, casos };
     });
+
+    // Ajustar activeIndex para que no quede fuera de rango tras eliminar
+    setActiveIndex((prev) => {
+      if (prev > i) return prev - 1; // el índice se desplaza hacia la izquierda
+      if (prev === i) return Math.max(0, prev - 1); // si borramos la pestaña activa, muévete a la anterior (o 0)
+      return prev;
+    });
+  };
 
   const copyHeaderFromCase1 = (i: number) =>
     setData((d) => {
