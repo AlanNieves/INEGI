@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Formato FA</title>
+  <style>
+    @page { size: A4; margin: 22mm 18mm; }
+    body { 
+      font-family: Arial, Helvetica, sans-serif; 
+      font-size: 11pt; 
+      color: #111; 
+      margin: 0; 
+      padding: 0; 
+    }
+    .page-break { page-break-before: always; }
+    
+    /* Header con logo y título */
+    .header-container { 
+      display: flex; 
+      align-items: flex-start; 
+      margin-bottom: 8mm; 
+    }
+    .logo-section { 
+      width: 30px; 
+      margin-right: 5mm; 
+      overflow: hidden;
+    }
+    .logo { 
+      width: 25px !important; 
+      height: auto !important; 
+      max-width: 25px !important;
+      display: block;
+    }
+    .logo svg {
+      width: 25px !important;
+      height: auto !important;
+      max-width: 25px !important;
+    }
+    .title-section { 
+      flex: 1; 
+      text-align: center; 
+    }
+    .folio-section { 
+      width: 150px; 
+      text-align: right; 
+      font-size: 10pt; 
+      margin-top: 5px; 
+    }
+    
+    h1 { 
+      font-size: 12pt; 
+      margin: 0; 
+      font-weight: 700; 
+      line-height: 1.2; 
+    }
+    h2 { 
+      font-size: 11pt; 
+      margin: 2px 0 0 0; 
+      font-weight: 700; 
+    }
+    
+    /* Tabla de encabezado */
+    .info-table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-bottom: 8mm; 
+      font-size: 10pt;
+      border: 1px solid #000;
+    }
+    .info-table td { 
+      border: 1px solid #000;
+      padding: 2px 6px; 
+      vertical-align: middle; 
+      height: 20px; 
+    }
+    .info-table .label { 
+      font-weight: 600; 
+      background: #f0f0f0;
+      width: 120px; 
+    }
+    .info-table .value { 
+      background: white;
+    }
+    .info-table .fecha-label { 
+      width: 60px; 
+    }
+    .info-table .fecha-value { 
+      width: 120px; 
+    }
+    
+    /* Secciones */
+    .section-title { 
+      font-weight: 700; 
+      margin: 15px 0 8px 0; 
+      font-size: 11pt; 
+      text-align: center; 
+      color: #d00; 
+    }
+    .caso-title { 
+      font-weight: 700; 
+      margin: 10px 0 8px 0; 
+      font-size: 11pt; 
+      text-align: left;
+    }
+    
+    /* Planteamiento */
+    .planteamiento-box { 
+      border: 2px solid #000;
+      padding: 10px; 
+      margin-bottom: 15mm; 
+      text-align: justify; 
+      line-height: 1.5;
+      font-size: 10pt;
+      min-height: 200px;
+      background: white;
+    }
+    
+    /* Firmas */
+    .firma-section { 
+      margin-top: 20mm;
+      display: flex; 
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .firma-box { 
+      text-align: center; 
+      width: 220px;
+    }
+    .firma-line { 
+      border-top: 1px solid #000; 
+      margin-bottom: 4px; 
+      height: 1px;
+    }
+    .firma-text { 
+      font-size: 8pt; 
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .firma-name { 
+      font-size: 9pt; 
+      margin-bottom: 2px;
+    }
+    
+    /* Página */
+    .page-number { 
+      text-align: center; 
+      margin-top: 10mm; 
+      font-size: 9pt; 
+    }
+    
+    /* Página 2: Desarrollo */
+    .desarrollo-space { 
+      min-height: 450px; 
+      padding: 10px; 
+      margin-bottom: 6mm;
+    }
+  </style>
+</head>
+<body>
+{{#if casos}}
+  {{#each casos}}
+    {{#unless @first}}<div class="page-break"></div>{{/unless}}
+    <!-- PÁGINA 1: PLANTEAMIENTO DEL CASO {{casoNumero}} -->
+    <div class="header-container">
+      <div class="logo-section">
+        <div class="logo">{{{../svgLogo}}}</div>
+      </div>
+      <div class="title-section">
+        <h1>SERVICIO PROFESIONAL DE CARRERA</h1>
+        <h2>EVALUACIÓN DE CASOS PRÁCTICOS SPC</h2>
+      </div>
+      <div class="folio-section">
+        <strong>FOLIO: {{encabezado.folio}}</strong>
+      </div>
+    </div>
+
+    <!-- Tabla de información -->
+    <table class="info-table">
+      <tr>
+        <td class="label">Convocatoria:</td>
+        <td class="value">{{encabezado.convocatoria}}</td>
+        <td class="label">Unidad Administrativa:</td>
+        <td class="value">{{encabezado.unidadAdministrativa}}</td>
+      </tr>
+      <tr>
+        <td class="label">Concurso:</td>
+        <td class="value">{{encabezado.concurso}}</td>
+        <td class="label">Fecha:</td>
+        <td class="value"></td>
+      </tr>
+      <tr>
+        <td class="label">Puesto:</td>
+        <td class="value">{{encabezado.puesto}}</td>
+        <td class="label">Hora de Inicio:</td>
+        <td class="value"></td>
+      </tr>
+      <tr>
+        <td class="label">Código:</td>
+        <td class="value">{{encabezado.codigoPuesto}}</td>
+        <td class="label">Hora de Término:</td>
+        <td class="value"></td>
+      </tr>
+    </table>
+
+    <div class="section-title">I. PLANTEAMIENTO(S)</div>
+
+    <div class="caso-title">CASO {{casoNumero}}</div>
+
+    <div class="planteamiento-box">
+      {{caso.planteamiento}}
+    </div>
+
+    <div class="firma-section">
+      <div class="firma-box">
+        <div class="firma-line"></div>
+        <div class="firma-name">{{encabezado.nombreEspecialista}}</div>
+        <div class="firma-text">NOMBRE Y FIRMA DE LA PERSONA ASPIRANTE</div>
+      </div>
+      <div class="firma-box">
+        <div class="firma-line"></div>
+        <div class="firma-text">Hora de término</div>
+      </div>
+    </div>
+
+    <div class="page-number">{{add (multiply (subtract casoNumero 1) 2) 1}} de {{multiply totalCasos 2}}</div>
+
+    <!-- PÁGINA 2: DESARROLLO -->
+    <div class="page-break">
+      <div class="header-container">
+        <div class="logo-section">
+          <div class="logo">{{{../svgLogo}}}</div>
+        </div>
+        <div class="title-section">
+          <h1>SERVICIO PROFESIONAL DE CARRERA</h1>
+          <h2>EVALUACIÓN DE CASOS PRÁCTICOS SPC</h2>
+        </div>
+        <div class="folio-section">
+          <strong>FOLIO: {{encabezado.folio}}</strong>
+        </div>
+      </div>
+
+      <!-- Tabla de información (repetida) -->
+      <table class="info-table">
+        <tr>
+          <td class="label">Convocatoria:</td>
+          <td class="value">{{encabezado.convocatoria}}</td>
+          <td class="label">Unidad Administrativa:</td>
+          <td class="value">{{encabezado.unidadAdministrativa}}</td>
+        </tr>
+        <tr>
+          <td class="label">Concurso:</td>
+          <td class="value">{{encabezado.concurso}}</td>
+          <td class="fecha-label">Fecha:</td>
+          <td class="fecha-value">_______________</td>
+        </tr>
+        <tr>
+          <td class="label">Puesto:</td>
+          <td class="value">{{encabezado.puesto}}</td>
+          <td class="fecha-label">Hora de Inicio:</td>
+          <td class="fecha-value">_______________</td>
+        </tr>
+        <tr>
+          <td class="label">Código:</td>
+          <td class="value">{{encabezado.codigoPuesto}}</td>
+          <td class="fecha-label">Hora de Término:</td>
+          <td class="fecha-value">_______________</td>
+        </tr>
+      </table>
+
+      <div class="section-title">II. DESARROLLO(S)</div>
+
+      <div class="desarrollo-space">
+        <!-- Espacio rayado para escribir -->
+      </div>
+
+      <div class="firma-section">
+        <div class="firma-box">
+          <div class="firma-line"></div>
+          <div class="firma-name">{{encabezado.nombreEspecialista}}</div>
+          <div class="firma-text">NOMBRE Y FIRMA DE LA PERSONA ASPIRANTE</div>
+        </div>
+        <div class="firma-box">
+          <div class="firma-line"></div>
+          <div class="firma-text">Hora de término</div>
+        </div>
+      </div>
+
+      <div class="page-number">{{add (multiply (subtract casoNumero 1) 2) 2}} de {{multiply totalCasos 2}}</div>
+    </div>
+  {{/each}}
+{{else}}
+  <!-- Fallback para caso único -->
+  <div class="header-container">
+    <div class="logo-section">
+      <div class="logo">{{{svgLogo}}}</div>
+    </div>
+    <div class="title-section">
+      <h1>SERVICIO PROFESIONAL DE CARRERA</h1>
+      <h2>EVALUACIÓN DE CASOS PRÁCTICOS SPC</h2>
+    </div>
+    <div class="folio-section">
+      <strong>FOLIO: {{encabezado.folio}}</strong>
+    </div>
+  </div>
+
+  <table class="info-table">
+    <tr>
+      <td class="label">Convocatoria:</td>
+      <td class="value">{{encabezado.convocatoria}}</td>
+      <td class="label">Unidad Administrativa:</td>
+      <td class="value">{{encabezado.unidadAdministrativa}}</td>
+    </tr>
+    <tr>
+      <td class="label">Concurso:</td>
+      <td class="value">{{encabezado.concurso}}</td>
+      <td class="fecha-label">Fecha:</td>
+      <td class="fecha-value">_______________</td>
+    </tr>
+    <tr>
+      <td class="label">Puesto:</td>
+      <td class="value">{{encabezado.puesto}}</td>
+      <td class="fecha-label">Hora de Inicio:</td>
+      <td class="fecha-value">_______________</td>
+    </tr>
+    <tr>
+      <td class="label">Código:</td>
+      <td class="value">{{encabezado.codigoPuesto}}</td>
+      <td class="fecha-label">Hora de Término:</td>
+      <td class="fecha-value">_______________</td>
+    </tr>
+  </table>
+
+  <div class="section-title">I. PLANTEAMIENTO(S)</div>
+  <div class="caso-title">CASO 1</div>
+
+  <div class="planteamiento-box">
+    {{caso.planteamiento}}
+  </div>
+
+  <div class="firma-section">
+    <div class="firma-box">
+      <div class="firma-line"></div>
+      <div class="firma-name">{{encabezado.nombreEspecialista}}</div>
+      <div class="firma-text">NOMBRE Y FIRMA DE LA PERSONA ASPIRANTE</div>
+    </div>
+    <div class="firma-box">
+      <div class="firma-line"></div>
+      <div class="firma-text">Hora de término</div>
+    </div>
+  </div>
+
+  <div class="page-number">1 de 2</div>
+
+  <!-- PÁGINA 2: DESARROLLO -->
+  <div class="page-break">
+    <div class="header-container">
+      <div class="logo-section">
+        <div class="logo">{{{svgLogo}}}</div>
+      </div>
+      <div class="title-section">
+        <h1>SERVICIO PROFESIONAL DE CARRERA</h1>
+        <h2>EVALUACIÓN DE CASOS PRÁCTICOS SPC</h2>
+      </div>
+      <div class="folio-section">
+        <strong>FOLIO: {{encabezado.folio}}</strong>
+      </div>
+    </div>
+
+    <table class="info-table">
+      <tr>
+        <td class="label">Convocatoria:</td>
+        <td class="value">{{encabezado.convocatoria}}</td>
+        <td class="label">Unidad Administrativa:</td>
+        <td class="value">{{encabezado.unidadAdministrativa}}</td>
+      </tr>
+      <tr>
+        <td class="label">Concurso:</td>
+        <td class="value">{{encabezado.concurso}}</td>
+        <td class="fecha-label">Fecha:</td>
+        <td class="fecha-value">_______________</td>
+      </tr>
+      <tr>
+        <td class="label">Puesto:</td>
+        <td class="value">{{encabezado.puesto}}</td>
+        <td class="fecha-label">Hora de Inicio:</td>
+        <td class="fecha-value">_______________</td>
+      </tr>
+      <tr>
+        <td class="label">Código:</td>
+        <td class="value">{{encabezado.codigoPuesto}}</td>
+        <td class="fecha-label">Hora de Término:</td>
+        <td class="fecha-value">_______________</td>
+      </tr>
+    </table>
+
+    <div class="section-title">II. DESARROLLO(S)</div>
+
+    <div class="desarrollo-space">
+      <!-- Espacio rayado para escribir -->
+    </div>
+
+    <div class="firma-section">
+      <div class="firma-box">
+        <div class="firma-line"></div>
+        <div class="firma-name">{{encabezado.nombreEspecialista}}</div>
+        <div class="firma-text">NOMBRE Y FIRMA DE LA PERSONA ASPIRANTE</div>
+      </div>
+      <div class="firma-box">
+        <div class="firma-line"></div>
+        <div class="firma-text">Hora de término</div>
+      </div>
+    </div>
+
+    <div class="page-number">2 de 2</div>
+  </div>
+{{/if}}
+</body>
+</html>
