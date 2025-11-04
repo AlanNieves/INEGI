@@ -180,21 +180,6 @@ export const api = {
     return data;
   },
 
-  // 🆕 Generación en lote (ZIP)
-  async generarFELote(payload: { casos: any[]; folios: string[] }) {
-    const { data } = await http.post("/fe/generar-lote", payload, { responseType: 'blob' });
-    return data as Blob;
-  },
-
-  async generarFALote(payload: { casos: any[]; folios: string[] }) {
-    const { data } = await http.post("/fa/generar-lote", payload, { responseType: 'blob' });
-    return data as Blob;
-  },
-
-  async generarRespuestasLote(payload: { casos: any[]; folios: string[] }) {
-    const { data } = await http.post("/respuestas/generar-lote", payload, { responseType: 'blob' });
-    return data as Blob;
-  },
   // Generar ZIP con FA/FE/Respuestas por folio (cada folio -> carpeta con archivos)
   async generarArtefactosLote(payload: { casos: any[]; folios: string[]; header?: any }) {
     const { data } = await http.post("/artifacts/generar-lote", payload, { responseType: 'blob' });

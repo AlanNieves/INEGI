@@ -1,7 +1,8 @@
 // src/features/links/LinkGenerator.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
 import { api } from "../../lib/api";
 import { useFolios } from "../../contexts/FoliosContext";
+import GlassDropdown from "./components/GlassDropdown";
 
 /* ---------------------------- Tipos (flexibles) ---------------------------- */
 
@@ -26,26 +27,19 @@ type Plaza = {
   _id: string;
   convocatoriaId?: string;
   concursoId?: string;
-
-  // alias posibles de código de plaza
   codigoPlaza?: string;
   codigo?: string;
   plaza?: string;
   code?: string;
   clave?: string;
-
-  // puesto / unidad (alias)
   puesto?: string;
   puestoNombre?: string;
   unidadAdministrativa?: string;
   unidad_adm?: string;
-
   radicacion?: string;
-
-  // especialista (alias según la fuente)
-  especialistaId?: string;     // camelCase (si viene normalizado)
-  especialista_id?: string;    // snake_case (como en tu BD)
-  especialistaNombre?: string; // opcional
+  especialistaId?: string;
+  especialista_id?: string;
+  especialistaNombre?: string;
 };
 
 type Especialista = {
@@ -69,19 +63,15 @@ type GenResult = { token: string; url: string; expiraAt: string };
 function getPlazaCodigo(p: Plaza) {
   return p.codigoPlaza || p.codigo || p.plaza || p.code || p.clave || "";
 }
-
 function getPuesto(p: Plaza) {
   return p.puesto || p.puestoNombre || "";
 }
-
 function getUnidad(p: Plaza) {
   return p.unidadAdministrativa || (p as any).unidad_adm || "";
 }
-
 function getEspecialistaId(p: Plaza) {
   return p.especialistaId || (p as any).especialista_id || "";
 }
-
 function getEspecialistaNombre(p: Plaza, map: Record<string, Especialista>) {
   const id = getEspecialistaId(p);
   return (
@@ -90,11 +80,9 @@ function getEspecialistaNombre(p: Plaza, map: Record<string, Especialista>) {
     ""
   );
 }
-
 function labelConcurso(c: Concurso) {
   return c.nombre || c.codigo || c.hash || "SIN-NOMBRE";
 }
-
 function labelConvocatoria(c: Convocatoria) {
   return c.codigo || c.nombre || c.hash || "SIN-CODIGO";
 }
@@ -104,7 +92,7 @@ function labelConvocatoria(c: Convocatoria) {
 export default function LinkGenerator() {
   const { setSelectedFolios } = useFolios();
   const BATCH_KEY = '__lote';
-  
+
   const [convocatorias, setConvocatorias] = useState<Convocatoria[]>([]);
   const [concursos, setConcursos] = useState<Concurso[]>([]);
   const [plazas, setPlazas] = useState<Plaza[]>([]);
@@ -113,52 +101,30 @@ export default function LinkGenerator() {
 
   const [convId, setConvId] = useState("");
   const [concId, setConcId] = useState("");
-  // per-plaza aspirante selection removed from UI; keep placeholder in case needed later
-
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<Record<string, GenResult>>({}); // plaza._id -> result
+  const [results, setResults] = useState<Record<string, GenResult>>({});
+  const [showTable, setShowTable] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownHeight, setDropdownHeight] = useState(0);
 
-  // Leer casos desde localStorage (misma clave que usa DownloadFA/FE)
-  function readCasesFromStorage() {
-    try {
-      // 1) Intentar clave global (v1 del proyecto)
-      const GLOBAL_KEY = 'inegi_cp_form_v2';
-      const rawGlobal = localStorage.getItem(GLOBAL_KEY);
-      if (rawGlobal) {
-        try {
-          const data = JSON.parse(rawGlobal);
-          if (data && Array.isArray(data.casos) && data.casos.length > 0) return data;
-        } catch {}
+  // Ref para evitar que se guarde doble en el historial (debido a React.StrictMode)
+  const hasBeenSavedToHistory = useRef(false);
+
+  // Cuando el dropdown está abierto, mide su alto
+  useLayoutEffect(() => {
+    function updateHeight() {
+      if (dropdownOpen && dropdownRef.current) {
+        setDropdownHeight(dropdownRef.current.offsetHeight);
+      } else {
+        setDropdownHeight(0);
       }
-
-      // 2) Fallback: leer el índice de formularios guardados y cargar el más reciente
-      const INDEX_KEY = 'inegi_cp_index_v1';
-      const rawIndex = localStorage.getItem(INDEX_KEY);
-      if (!rawIndex) return null;
-      const idx = JSON.parse(rawIndex);
-      if (!Array.isArray(idx) || idx.length === 0) return null;
-
-      // En el índice los items se agregan al final; tomar el último (más reciente)
-      const last = idx[idx.length - 1];
-      const token = last?.token;
-      if (!token) return null;
-
-      const tokenKey = `inegi_cp_from_v2:${token}`; // nota: el form actual usa "from" en la clave
-      const rawToken = localStorage.getItem(tokenKey);
-      if (!rawToken) return null;
-      try {
-        const data = JSON.parse(rawToken);
-        if (data && Array.isArray(data.casos) && data.casos.length > 0) return data;
-      } catch {}
-
-      return null;
-    } catch {
-      return null;
     }
-  }
-
-  /* ----------------------------- Carga catálogos ----------------------------- */
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, [dropdownOpen]);
 
   useEffect(() => {
     (async () => {
@@ -175,8 +141,6 @@ export default function LinkGenerator() {
     })();
   }, []);
 
-  /* ------------------------------ Cambio de conv ----------------------------- */
-
   useEffect(() => {
     (async () => {
       setConcursos([]);
@@ -192,30 +156,23 @@ export default function LinkGenerator() {
     })();
   }, [convId]);
 
-  /* ------------------------------- Cambio de conc ---------------------------- */
-
   useEffect(() => {
     (async () => {
-  setPlazas([]);
-  setAspirantes([]);
+      setPlazas([]);
+      setAspirantes([]);
       if (!convId || !concId) return;
-      
       try {
         const [plazasData, aspirantesData] = await Promise.all([
           api.listPlazas(convId, concId),
           api.listAspirantes(convId, concId),
         ]);
-        
         setPlazas(plazasData as any);
         setAspirantes(aspirantesData);
       } catch (e: any) {
-        console.error("Error cargando plazas/aspirantes:", e);
         setError(e?.message || "Error cargando plazas/aspirantes.");
       }
     })();
   }, [convId, concId]);
-
-  /* ------------------------- Índice de especialistas ------------------------- */
 
   const especialistasById = useMemo(() => {
     const map: Record<string, Especialista> = {};
@@ -224,8 +181,6 @@ export default function LinkGenerator() {
     }
     return map;
   }, [especialistas]);
-
-  /* (Per-plaza generate UI removed) */
 
   const copy = async (text: string) => {
     try {
@@ -237,44 +192,31 @@ export default function LinkGenerator() {
     }
   };
 
-  /* ---------------------- Función para procesar TODOS los folios ----------------------- */
-
   const handleProceedWithAllFolios = async () => {
-    // Necesitamos los datos del encabezado de la convocatoria/concurso seleccionados
     if (!convId || !concId) {
       alert("Selecciona una convocatoria y concurso primero");
       return;
     }
-
     if (aspirantes.length === 0) {
       setError("No hay aspirantes disponibles");
       return;
     }
-
     setBusy(true);
     setError(null);
-
     try {
-      // Obtener datos para el prefill
       const conv = convocatorias.find((c) => c._id === convId);
       const conc = concursos.find((c) => c._id === concId);
-
       const convCode = conv?.codigo || conv?.nombre || "";
       const concCode = conc?.codigo || conc?.nombre || "";
-
-      // Tomar la primera plaza como referencia para los datos comunes
       const primeraPlaza = plazas[0];
       if (!primeraPlaza) {
         setError("No hay plazas disponibles");
         return;
       }
-
       const plazaCodigo = getPlazaCodigo(primeraPlaza);
       const puesto = getPuesto(primeraPlaza);
       const unidadAdministrativa = getUnidad(primeraPlaza);
       const jefeNombre = getEspecialistaNombre(primeraPlaza, especialistasById);
-
-      // Usar todos los folios disponibles
       const foliosArray = aspirantes.map(a => a.folio);
 
       const body: any = {
@@ -296,28 +238,32 @@ export default function LinkGenerator() {
         },
       };
 
-  const res = await api.createLink(body);
+      const res = await api.createLink(body);
+      setSelectedFolios(foliosArray);
+      setResults(prev => ({ ...prev, [BATCH_KEY]: res }));
 
-  // Guardar los folios en el contexto global
-  setSelectedFolios(foliosArray);
-
-  // Guardar el resultado en la tabla de resultados para mostrar el link (no navegamos)
-  setResults(prev => ({ ...prev, [BATCH_KEY]: res }));
-      try {
-        // También registrar en el índice local para que aparezca en Historial
-        const INDEX_KEY = "inegi_cp_index_v1";
-        const raw = localStorage.getItem(INDEX_KEY);
-        const idx = raw ? (JSON.parse(raw) as any[]) : [];
-        idx.push({
-          token: res.token,
-          // No hay examId/responsesUrl todavía para lote; guardamos metadatos
-          nombreEspecialista: jefeNombre || "",
-          concurso: concCode || "",
-          folios: foliosArray,
-          savedAt: new Date().toISOString(),
-        });
-        localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
-      } catch {}
+      // Guardar en el historial SOLO si no se ha guardado antes (evita duplicados por StrictMode)
+      if (!hasBeenSavedToHistory.current) {
+        hasBeenSavedToHistory.current = true;
+        try {
+          const INDEX_KEY = "inegi_cp_index_v1";
+          const raw = localStorage.getItem(INDEX_KEY);
+          const idx = raw ? (JSON.parse(raw) as any[]) : [];
+          // Verificar si ya existe este token para evitar duplicados
+          const existingIndex = idx.findIndex((item: any) => item.token === res.token);
+          if (existingIndex === -1) {
+            // Solo agregar si no existe
+            idx.push({
+              token: res.token,
+              nombreEspecialista: jefeNombre || "",
+              concurso: concCode || "",
+              folios: foliosArray,
+              savedAt: new Date().toISOString(),
+            });
+            localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
+          }
+        } catch {}
+      }
     } catch (e: any) {
       const serverMsg =
         e?.response?.data?.message ||
@@ -329,179 +275,233 @@ export default function LinkGenerator() {
     }
   };
 
-  /* ------------------------------------ UI ----------------------------------- */
+  useEffect(() => {
+    setShowTable(false);
+    if (convId && concId && aspirantes.length > 0) {
+      setTimeout(() => setShowTable(true), 50);
+    }
+  }, [convId, concId, aspirantes.length]);
 
   return (
-    <section className="w-full max-w-5xl bg-white rounded-3xl shadow-lg p-6 my-10 text-left">
-      <h2 className="text-2xl font-bold mb-1">Generación de links por Jefe de Plaza</h2>
-      <p className="text-sm text-gray-600 mb-6">
+    <section
+      className="w-full max-w-5xl mx-auto my-10 p-8 rounded-3xl shadow-xl glass-panel"
+      style={{
+        transition: "margin-bottom 0.6s cubic-bezier(.4,2,.6,1)",
+        marginBottom: dropdownHeight ? dropdownHeight + 240 : 0, // <-- Aumenta aquí (prueba 240)
+      }}
+    >
+      <h2 className="text-2xl font-bold mb-1 text-cyan-100">Generación de links por Jefe de Plaza</h2>
+      <p className="text-sm text-cyan-300 mb-6">
         Selecciona la <strong>convocatoria</strong> y el <strong>concurso</strong>. Luego, genera un link para cada plaza.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
-        <div>
-          <label className="block text-sm text-gray-700 mb-1">Convocatoria</label>
-          <select
-            className="w-full border rounded-xl px-3 py-2"
+        <div ref={dropdownRef}>
+          <GlassDropdown
+            label="Convocatoria"
             value={convId}
-            onChange={(e) => setConvId(e.target.value)}
-          >
-            <option value="">— Seleccionar —</option>
-            {convocatorias.map((c) => (
-              <option key={c._id} value={c._id}>
-                {labelConvocatoria(c)}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "— Seleccionar —" },
+              ...convocatorias.map((c) => ({
+                value: c._id,
+                label: labelConvocatoria(c),
+              })),
+            ]}
+            onChange={setConvId}
+            onOpenChange={setDropdownOpen}
+          />
         </div>
-
-        <div>
-          <label className="block text-sm text-gray-700 mb-1">Concurso</label>
-          <select
-            className="w-full border rounded-xl px-3 py-2"
-            value={concId}
-            onChange={(e) => setConcId(e.target.value)}
-            disabled={!convId}
-          >
-            <option value="">— Seleccionar —</option>
-            {concursos.map((c) => (
-              <option key={c._id} value={c._id}>
-                {labelConcurso(c)}
-              </option>
-            ))}
-          </select>
-        </div>
-
+        <GlassDropdown
+          label="Concurso"
+          value={concId}
+          options={[
+            { value: "", label: "— Seleccionar —" },
+            ...concursos.map((c) => ({
+              value: c._id,
+              label: labelConcurso(c),
+            })),
+          ]}
+          onChange={setConcId}
+          disabled={!convId}
+          onOpenChange={setDropdownOpen} // PASA EL HANDLER
+        />
         <div className="flex items-center gap-2">
           <button
-            className="px-4 py-2 rounded-xl bg-cyan-900 text-white shadow disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-cyan-900 text-cyan-100 shadow disabled:opacity-50"
             disabled
             title="Las plazas se listan automáticamente al elegir Convocatoria y Concurso"
           >
             Listar plazas
           </button>
-          {error && <span className="text-red-600 text-sm">{error}</span>}
+          {error && <span className="text-cyan-300 text-sm">{error}</span>}
         </div>
       </div>
 
       {convId && concId && (
         <>
-          {/* 🆕 Panel de generación en lote — ahora usa TODOS los folios disponibles */}
-          {aspirantes.length > 0 && (
-            <div className="mb-8 p-6 border-2 border-emerald-400 rounded-2xl bg-gradient-to-r from-emerald-50 to-cyan-50 shadow-lg">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="text-xl font-bold text-emerald-900 mb-1 flex items-center gap-2">
-                    <span className="text-2xl">�</span>
-                    Generación en Lote
+          <button
+            className="mb-4 px-5 py-2 btn-glass"
+            onClick={() => setShowTable((v) => !v)}
+            type="button"
+          >
+            {showTable ? "Ocultar plazas" : "Mostrar plazas"}
+          </button>
+
+          <div
+            className={`glass-table-container ${showTable ? "open" : ""}`}
+            aria-hidden={!showTable}
+          >
+            {aspirantes.length > 0 && (
+              <div className="mb-8 p-6 glass-table">
+                <div className="mb-4">
+                  <h3 className="text-xl font-bold text-cyan-100 mb-2">
+                    Plaza Seleccionada
                   </h3>
-                  <p className="text-sm text-emerald-800 font-medium">
-                    Llena el formulario <strong>una sola vez</strong> y genera documentos para todos los folios de la convocatoria.
+                  <p className="text-sm text-cyan-200">
+                    Información de la plaza y jefe de plaza para la generación del link.
                   </p>
                 </div>
-                <span className="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-full">
-                  BATCH MODE
-                </span>
-              </div>
 
-              <p className="text-sm text-gray-700 mb-4 pl-8">
-                El sistema procesará automáticamente <strong>todos</strong> los folios disponibles para la convocatoria y concurso seleccionados.
-              </p>
-
-              {/* Tabla completa de plazas (igual que 'Generación Individual') colocada arriba */}
-              <div className="mt-4 pl-8">
-                <div className="overflow-x-auto shadow-md rounded-xl">
-                  <table className="min-w-full text-left border-collapse">
-                    <thead className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Plaza</th>
-                        <th className="px-4 py-3 font-semibold">Puesto</th>
-                        <th className="px-4 py-3 font-semibold">Unidad</th>
-                        <th className="px-4 py-3 font-semibold">Jefe de plaza</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white">
-                      {plazas.length === 0 && (
+                <div className="mt-4">
+                  <div className="overflow-x-auto shadow-md rounded-xl">
+                    <table className="min-w-full text-left border-collapse">
+                      <thead className="bg-gradient-to-r from-cyan-800 to-cyan-600 text-cyan-100 text-sm">
                         <tr>
-                            <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                          <th className="px-4 py-3 font-semibold">Plaza</th>
+                          <th className="px-4 py-3 font-semibold">Puesto</th>
+                          <th className="px-4 py-3 font-semibold">Unidad</th>
+                          <th className="px-4 py-3 font-semibold">Jefe de plaza</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-[#0a1624]/60">
+                        {plazas.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="px-4 py-8 text-center text-cyan-400">
                               <div className="flex flex-col items-center gap-2">
-                                <span className="text-4xl opacity-30">📭</span>
                                 <p>No hay plazas para esta combinación.</p>
                               </div>
                             </td>
                           </tr>
-                      )}
+                        )}
 
-                      {plazas.map((p) => {
-                        const codigo = getPlazaCodigo(p);
-                        const puesto = getPuesto(p);
-                        const unidad = getUnidad(p);
-                        const espName = getEspecialistaNombre(p, especialistasById) || "—";
+                        {plazas.map((p) => {
+                          const codigo = getPlazaCodigo(p);
+                          const puesto = getPuesto(p);
+                          const unidad = getUnidad(p);
+                          const espName = getEspecialistaNombre(p, especialistasById) || "—";
 
-                        return (
-                          <tr key={p._id} className="border-t border-gray-200 hover:bg-blue-50 transition-colors">
-                                <td className="px-4 py-3 font-mono text-sm">{codigo || "—"}</td>
-                                <td className="px-4 py-3 text-sm">{puesto || "—"}</td>
-                                <td className="px-4 py-3 text-sm">{unidad || "—"}</td>
-                                <td className="px-4 py-3 text-sm">{espName}</td>
-                              </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 pl-8">
-                <div className="text-sm text-gray-600">
-                  Total: <strong className="ml-1 text-emerald-700">{aspirantes.length}</strong> aspirantes disponibles
-                </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleProceedWithAllFolios}
-                      disabled={busy}
-                      className="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {busy ? 'Generando...' : 'Generar link'}
-                    </button>
+                          return (
+                            <tr key={p._id} className="border-t border-cyan-900/40 hover:bg-cyan-900/20 transition-colors">
+                              <td className="px-4 py-3 font-mono text-sm text-cyan-100">{codigo || "—"}</td>
+                              <td className="px-4 py-3 text-sm text-cyan-100">{puesto || "—"}</td>
+                              <td className="px-4 py-3 text-sm text-cyan-100">{unidad || "—"}</td>
+                              <td className="px-4 py-3 text-sm text-cyan-100">{espName}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-              </div>
+                </div>
 
-              {error && (
-                <p className="text-sm text-red-600 mt-3 pl-8">{error}</p>
-              )}
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-cyan-300">
+                    Total: <strong className="ml-1 text-cyan-100">{aspirantes.length}</strong> aspirantes disponibles
+                  </div>
+                  <button
+                    onClick={handleProceedWithAllFolios}
+                    disabled={busy}
+                    className="px-6 py-3 bg-cyan-700 text-cyan-100 font-semibold rounded-lg hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed shadow"
+                  >
+                    {busy ? 'Generando...' : 'Generar link'}
+                  </button>
+                </div>
 
-              
-              {/* Mostrar link generado para el lote (igual que en la tabla inferior) */}
-              {results[BATCH_KEY] && (
-                <div className="mt-4 pl-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-                    <a
-                      className="text-blue-600 hover:text-blue-800 font-mono text-sm break-all underline decoration-2"
-                      href={(results as any)[BATCH_KEY].url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {(results as any)[BATCH_KEY].url}
-                    </a>
-                    <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                {error && (
+                  <p className="text-sm text-cyan-300 mt-3">{error}</p>
+                )}
+
+                {results[BATCH_KEY] && (
+                  <div className="mt-4 p-4 bg-cyan-900/20 rounded-lg border border-cyan-700/30">
+                    <p className="text-xs text-cyan-300 mb-2">Link generado:</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <a
+                        className="text-cyan-300 hover:text-cyan-100 font-mono text-sm break-all underline decoration-2"
+                        href={(results as any)[BATCH_KEY].url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {(results as any)[BATCH_KEY].url}
+                      </a>
                       <button
-                        className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg font-medium transition-colors"
+                        className="text-xs px-4 py-2 bg-cyan-900 hover:bg-cyan-800 border border-cyan-700 rounded-lg font-medium transition-colors text-cyan-100 whitespace-nowrap"
                         onClick={() => copy((results as any)[BATCH_KEY].url)}
                         title="Copiar al portapapeles"
                       >
-                        📋 Copiar
+                        Copiar
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          
+                )}
+              </div>
+            )}
+          </div>
         </>
       )}
+      <style>{`
+        .darkmode-linkgen {
+          background: linear-gradient(120deg, #0a1624 0%, #0a223f 100%);
+          color: #e6eef9;
+          border-radius: 24px;
+          box-shadow: 0 8px 40px rgba(14,165,233,0.10), 0 1px 0 rgba(255,255,255,0.02);
+        }
+        .darkmode-linkgen h2 {
+          color: #bfe0ff;
+          text-shadow: 0 2px 16px #3b82f6cc;
+        }
+        .glass-panel {
+          background: rgba(18, 28, 48, 0.72);
+          border: 1.5px solid rgba(80, 180, 255, 0.09);
+          box-shadow: 0 8px 40px rgba(14,165,233,0.10), 0 1px 0 rgba(255,255,255,0.02);
+          backdrop-filter: blur(18px) saturate(120%);
+          -webkit-backdrop-filter: blur(18px) saturate(120%);
+          border-radius: 24px;
+          transition: box-shadow 0.2s;
+        }
+        .btn-glass {
+          background: rgba(30, 40, 60, 0.85);
+          color: #e6eef9;
+          border: 1.5px solid rgba(80, 180, 255, 0.13);
+          border-radius: 12px;
+          padding: 10px 22px;
+          font-weight: 600;
+          transition: background 0.18s, border 0.18s;
+        }
+        .btn-glass:hover {
+          background: rgba(40, 60, 90, 0.92);
+          border-color: #3b82f6;
+        }
+        .glass-table-container {
+          overflow: visible;
+          max-height: 0;
+          opacity: 0;
+          transform: translateY(-16px) scaleY(0.98);
+          transition: max-height 0.7s cubic-bezier(.4,2,.6,1), opacity 0.5s, transform 0.5s;
+        }
+        .glass-table-container.open {
+          max-height: 1200px;
+          opacity: 1;
+          transform: translateY(0) scaleY(1);
+        }
+        .glass-table {
+          background: rgba(18, 28, 48, 0.68);
+          border: 1.5px solid rgba(80, 180, 255, 0.09);
+          box-shadow: 0 4px 32px rgba(14,165,233,0.08);
+          backdrop-filter: blur(16px) saturate(120%);
+          -webkit-backdrop-filter: blur(16px) saturate(120%);
+          border-radius: 20px;
+        }
+      `}</style>
     </section>
   );
 }

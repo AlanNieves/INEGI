@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { enviarRespuestasYObtenerPDF } from "./api";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 /** Tipos */
 export type Encabezado = {
@@ -162,6 +161,9 @@ export default function FormCasePractices({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // Ref para evitar que se guarde doble en el historial (debido a React.StrictMode)
+  const hasBeenSavedToHistory = useRef(false);
+
   // Actualizar datos cuando cambien los initialData
   useEffect(() => {
     if (initialData) {
@@ -261,7 +263,7 @@ export default function FormCasePractices({
       return { ...d, casos };
     });
 
-  const removeCase = (i: number) => {
+  const removeCase = (i: number) =>
     setData((d) => {
       if (d.casos.length <= 1) return d; // siempre queda al menos 1
       const casos = d.casos.slice();
@@ -270,14 +272,6 @@ export default function FormCasePractices({
       const h = casos[0].encabezado;
       return { ...h, casos };
     });
-
-    // Ajustar activeIndex para que no quede fuera de rango tras eliminar
-    setActiveIndex((prev) => {
-      if (prev > i) return prev - 1; // el índice se desplaza hacia la izquierda
-      if (prev === i) return Math.max(0, prev - 1); // si borramos la pestaña activa, muévete a la anterior (o 0)
-      return prev;
-    });
-  };
 
   const copyHeaderFromCase1 = (i: number) =>
     setData((d) => {
@@ -330,42 +324,58 @@ export default function FormCasePractices({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, allValid]);
 
-  /** Handler para finalizar y obtener URL de descarga */
+  /** Handler para finalizar y guardar la información del formulario */
   async function handleFinalize() {
     if (!allValid || !token) return;
     setSubmitting(true);
     setServerError(null);
     setDownloadUrl(null);
     try {
-      // Envía respuestas, el back genera PDF y lo descargamos
-      const { blob, examId, responsesUrl } = await enviarRespuestasYObtenerPDF(token, data);
+      // Enviar respuestas al backend para guardar la información
+      const res = await fetch(`/api/exams/${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: data, consent: { accepted: true } }),
+      });
 
-      // Descarga inmediata del PDF en el navegador
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Respuestas_Caso_Practico_${data.concurso || "caso"}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(`Error al guardar el formulario: ${t}`);
+      }
+
+      const { examId, responsesUrl } = await res.json();
+      if (!responsesUrl || !examId) {
+        throw new Error("El backend no devolvió examId o responsesUrl.");
+      }
       
-      try {
-        const INDEX_KEY = "inegi_cp_index_v1";
-        const raw = localStorage.getItem(INDEX_KEY);
-        const idx = raw ? (JSON.parse(raw) as any[]) : [];
-        idx.push({
-          token,
-          examId,
-          responsesUrl,
-          nombreEspecialista: data?.nombreEspecialista || data?.casos?.[0]?.encabezado?.nombreEspecialista,
-          concurso: data?.concurso || data?.casos?.[0]?.encabezado?.concurso,
-          savedAt: new Date().toISOString(),
-        });
-        localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
-      } catch {}
+      // Guardar en el historial SOLO si no se ha guardado antes (evita duplicados por StrictMode)
+      if (!hasBeenSavedToHistory.current) {
+        hasBeenSavedToHistory.current = true;
+        try {
+          const INDEX_KEY = "inegi_cp_index_v1";
+          const raw = localStorage.getItem(INDEX_KEY);
+          const idx = raw ? (JSON.parse(raw) as any[]) : [];
+          // Verificar si ya existe este token para evitar duplicados
+          const existingIndex = idx.findIndex((item: any) => item.token === token);
+          if (existingIndex === -1) {
+            // Solo agregar si no existe
+            idx.push({
+              token,
+              examId,
+              responsesUrl,
+              nombreEspecialista: data?.nombreEspecialista || data?.casos?.[0]?.encabezado?.nombreEspecialista,
+              concurso: data?.concurso || data?.casos?.[0]?.encabezado?.concurso,
+              savedAt: new Date().toISOString(),
+            });
+            localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
+          }
+        } catch {}
+      }
+
+      // Mostrar mensaje de éxito
+      alert("Formulario guardado exitosamente. Puedes generar los documentos desde el historial.");
     } catch (e: any) {
-      setServerError(e?.message || "No se pudo generar/descargar el PDF de respuestas.");
+      setServerError(e?.message || "No se pudo guardar el formulario.");
     } finally {
       setSubmitting(false);
     }
@@ -598,7 +608,7 @@ export default function FormCasePractices({
       <p className={`text-sm ${allValid ? "text-emerald-700" : "text-red-700"}`}>
         {allValid
           ? isBatchMode
-            ? "✅ Formulario completo. Desplázate hacia abajo para descargar los documentos en lote."
+            ? "Formulario completo. Desplázate hacia abajo para descargar los documentos en lote."
             : "Formulario completo. Ya puedes generar el PDF desde el botón 'Finalizar'."
           : "Completa los campos marcados con * y al menos 1 aspecto con puntaje (0–100) en cada caso. La suma total debe ser 100."}
       </p>

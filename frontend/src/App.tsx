@@ -19,7 +19,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#ACCCD8] pt-40">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
       <Routes>
         <Route

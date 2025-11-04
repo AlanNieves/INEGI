@@ -6,9 +6,7 @@ import FormCasePractices, {
   type EstructuraPayload,
 } from "../features/casos-practicos/FormCasePractices";
 import PrivacyModal from "../components/PrivacyModal";
-import DownloadFE from "../features/fe/DownloadFE";
-import DownloadFA from "../features/fa/DownloadFA";
-import DownloadRespuestas from "../features/forms/DownloadRespuestas";
+
 
 type PrefillFlat = {
   convocatoria: string;
@@ -101,7 +99,7 @@ export default function FormPage() {
     }
     setPrivacySubmitting(true);
     try {
-  // El backend valida el campo `tipo` contra un enum; usar un valor permitido.
+  // El backend valida el campo tipo contra un enum; usar un valor permitido.
   // Valores válidos según backend: 'uso_app' | 'conclusion_examen'
   await api.postConsent(token, { tipo: "uso_app", nombreDeclarante: fullName, aceptado: true });
       try {
@@ -246,7 +244,7 @@ export default function FormPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <DownloadFE casos={formData.casos || []} />
             <DownloadFA casos={formData.casos || []} />
-            <DownloadRespuestas casos={formData.casos || []} />
+            
           </div>
         </div>
       )}

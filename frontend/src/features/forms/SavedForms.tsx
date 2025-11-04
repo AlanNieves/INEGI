@@ -92,129 +92,6 @@ export default function SavedForms() {
     setItems(next);
   };
 
-  const handleFA = async (token: string) => {
-    setError(null);
-    const form = readFormByToken(token);
-    if (!form) {
-      setError("No encontré el formulario en este navegador.");
-      return;
-    }
-    try {
-      setBusyToken(token);
-      const payload = {
-        pagesPerCase: 2,
-        casos: form.casos.map((c) => ({
-          encabezado: c.encabezado,
-          planteamiento: c.planteamiento,
-        })),
-      };
-      const res = await fetch("/api/fa/generar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const ct = res.headers.get("content-type") || "";
-      if (!res.ok) {
-        const errText = ct.includes("application/json") ? JSON.stringify(await res.json()) : await res.text();
-        throw new Error(`FA — ${res.status} ${res.statusText} — ${errText}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `FA_${form.concurso || "formulario"}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo generar FA.");
-    } finally {
-      setBusyToken(null);
-    }
-  };
-
-  const handleFE = async (token: string) => {
-    setError(null);
-    const form = readFormByToken(token);
-    if (!form) {
-      setError("No encontré el formulario en este navegador.");
-      return;
-    }
-    try {
-      setBusyToken(token);
-      const payload = {
-        casos: form.casos.map((c) => ({
-          encabezado: c.encabezado,
-          planteamiento: c.planteamiento,
-          aspectos: c.aspectos, // Incluir aspectos para FE
-        })),
-      };
-      const res = await fetch("/api/fe/generar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const ct = res.headers.get("content-type") || "";
-      if (!res.ok) {
-        const errText = ct.includes("application/json") ? JSON.stringify(await res.json()) : await res.text();
-        throw new Error(`FE — ${res.status} ${res.statusText} — ${errText}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `FE_${form.concurso || "formulario"}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo generar FE.");
-    } finally {
-      setBusyToken(null);
-    }
-  };
-
-  const handleRespuestas = async (token: string) => {
-    setError(null);
-    const form = readFormByToken(token);
-    if (!form) {
-      setError("No encontré el formulario en este navegador.");
-      return;
-    }
-
-    // Buscar el item en el índice para obtener examId y responsesUrl
-    const indexItem = items.find(item => item.token === token);
-    if (!indexItem?.examId || !indexItem?.responsesUrl) {
-      setError("No se encontró información de descarga para este formulario.");
-      return;
-    }
-
-    try {
-      setBusyToken(token);
-      const res = await fetch(indexItem.responsesUrl);
-      const ct = res.headers.get("content-type") || "";
-      if (!res.ok || !ct.includes("application/pdf")) {
-        const errText = ct.includes("application/json") ? JSON.stringify(await res.json()) : await res.text();
-        throw new Error(`Respuestas — ${res.status} ${res.statusText} — ${errText}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Respuestas_${form.concurso || "formulario"}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo descargar el PDF de Respuestas.");
-    } finally {
-      setBusyToken(null);
-    }
-  };
-
   const handleArtefacts = async (token: string) => {
     setError(null);
     const form = readFormByToken(token);
@@ -315,65 +192,44 @@ export default function SavedForms() {
 
   if (rows.length === 0) {
     return (
-      <section className="w-full max-w-5xl mt-8">
-        <h2 className="text-xl font-semibold text-cyan-900">Formularios generados</h2>
-        <p className="text-sm text-gray-600 mt-1">Aún no hay envíos registrados en este navegador.</p>
+      <section className="w-full max-w-5xl mt-8 darkmode-savedforms">
+        <h2 className="text-xl font-semibold text-cyan-100">Formularios generados</h2>
+        <p className="text-sm text-cyan-300 mt-1">Aún no hay envíos registrados en este navegador.</p>
+        <style>{darkmodeStyles}</style>
       </section>
     );
   }
 
   return (
-    <section className="w-full max-w-5xl mt-8">
-      <h2 className="text-xl font-semibold text-cyan-900">Formularios generados</h2>
-      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+    <section
+      className="w-full max-w-5xl mx-auto my-10 p-8 rounded-3xl shadow-xl glass-panel"
+    >
+      <h2 className="text-xl font-semibold text-cyan-100">Formularios generados</h2>
+      {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
 
-      <div className="mt-3 divide-y rounded-2xl border border-cyan-100 bg-white/60 overflow-hidden">
+      <div className="mt-3 divide-y rounded-2xl border border-cyan-900 bg-[#0a101a]/80 overflow-hidden shadow-xl">
         {rows.map((r) => (
-          <div key={r.token} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div key={r.token} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-[#0a1a2f]/80 to-[#0a223f]/70 hover:from-[#0e223a]/90 hover:to-[#0a2a4f]/80 transition">
             <div>
-              <div className="font-medium text-cyan-900">
+              <div className="font-medium text-cyan-100">
                 Formulario — {r.nombreEspecialista || r.form?.nombreEspecialista || "Especialista"}
               </div>
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-cyan-300">
                 {r.concurso || r.form?.concurso || "Concurso"} · {new Date(r.savedAt).toLocaleString()}
               </div>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleFA(r.token)}
-                disabled={!r.ok || busyToken === r.token}
-                className="px-3 py-2 rounded-xl border border-cyan-300 text-cyan-800 hover:bg-cyan-50 disabled:opacity-50"
-                title="Descargar FA"
-              >
-                FA
-              </button>
-              <button
-                onClick={() => handleFE(r.token)}
-                disabled={!r.ok || busyToken === r.token}
-                className="px-3 py-2 rounded-xl border border-cyan-300 text-cyan-800 hover:bg-cyan-50 disabled:opacity-50"
-                title="Descargar FE"
-              >
-                FE
-              </button>
-              <button
                 onClick={() => handleArtefacts(r.token)}
                 disabled={!r.ok || busyToken === r.token}
-                className="px-3 py-2 rounded-xl border border-cyan-300 text-cyan-800 hover:bg-cyan-50 disabled:opacity-50"
-                title="Descargar artefactos (ZIP)"
+                className="px-3 py-2 rounded-xl border border-cyan-400 text-cyan-100 bg-cyan-900/30 hover:bg-cyan-800/60 shadow transition disabled:opacity-50"
+                title="Descargar formularios (ZIP)"
               >
-                Artefactos
-              </button>
-              <button
-                onClick={() => handleRespuestas(r.token)}
-                disabled={busyToken === r.token}
-                className="px-3 py-2 rounded-xl border border-cyan-300 text-cyan-800 hover:bg-cyan-50 disabled:opacity-50"
-                title="Descargar PDF de Respuestas"
-              >
-                Respuestas
+                Descargar Formularios
               </button>
               <button
                 onClick={() => handleDelete(r.token)}
-                className="px-3 py-2 rounded-xl border border-red-300 text-red-700 hover:bg-red-50"
+                className="px-3 py-2 rounded-xl border border-red-400 text-red-200 bg-red-900/30 hover:bg-red-800/60 shadow transition"
                 title="Quitar de la lista"
               >
                 Eliminar
@@ -382,9 +238,25 @@ export default function SavedForms() {
           </div>
         ))}
       </div>
-      <p className="text-xs text-gray-500 mt-2">
-        Nota: la lista se guarda en este navegador; no borro el formulario interno al eliminar la entrada (solo quito del índice).
-      </p>
+      
+      <style>{darkmodeStyles}</style>
     </section>
   );
 }
+
+const darkmodeStyles = `
+.darkmode-savedforms {
+  background: linear-gradient(120deg, #0a1624 0%, #0a223f 100%);
+  color: #e6eef9;
+  border-radius: 24px;
+  box-shadow: 0 8px 40px rgba(14,165,233,0.10), 0 1px 0 rgba(255,255,255,0.02);
+  padding-bottom: 32px;
+}
+.darkmode-savedforms h2 {
+  color: #bfe0ff;
+  text-shadow: 0 2px 16px #3b82f6cc;
+}
+.darkmode-savedforms .divide-y > * + * {
+  border-top: 1px solid rgba(59,130,246,0.10);
+}
+`;

@@ -24,7 +24,16 @@ export default function CasePractices() {
     if (!formData || !isValid || !token) return;
     try {
       setDownloading(true);
-      const blob = await enviarRespuestasYObtenerPDF(token, formData);
+      const res = await enviarRespuestasYObtenerPDF(token, formData);
+      // Corrige el error de tipo: extrae el blob correctamente
+      let blob: Blob;
+      if (res instanceof Blob) {
+        blob = res;
+      } else if (res && typeof res === "object" && "blob" in res) {
+        blob = res.blob;
+      } else {
+        throw new Error("Respuesta inesperada al solicitar el PDF");
+      }
       downloadBlob(blob, `Respuestas_Caso_Practico_${formData.concurso || "caso"}.pdf`);
     } catch (e: any) {
       console.error(e);
