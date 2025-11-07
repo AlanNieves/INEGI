@@ -25,7 +25,7 @@ export default function GlassDropdown({ label, value, options, onChange, disable
 
   return (
     <div className="glass-dropdown" tabIndex={0} ref={ref} onBlur={handleBlur}>
-      <label className="block text-sm text-cyan-200 mb-1">{label}</label>
+      <label className="block text-sm text-slate-200 mb-1">{label}</label>
       <button
         type="button"
         className={`glass-dropdown-btn ${disabled ? "disabled" : ""}`}
@@ -56,7 +56,7 @@ export default function GlassDropdown({ label, value, options, onChange, disable
           width: 100%;
           background: rgba(18,28,48,0.68);
           border: 1.5px solid rgba(80,180,255,0.18);
-          color: #e6eef9;
+          color: #f1f5f9;
           border-radius: 14px;
           padding: 10px 16px;
           font-size: 1rem;
@@ -66,7 +66,7 @@ export default function GlassDropdown({ label, value, options, onChange, disable
           display: flex; align-items: center; justify-content: space-between;
         }
         .glass-dropdown-btn:focus, .glass-dropdown-btn:hover {
-          border-color: #3b82f6;
+          border-color: #64748b;
           background: rgba(30,40,60,0.82);
         }
         .glass-dropdown-btn.disabled {
@@ -127,13 +127,13 @@ export default function GlassDropdown({ label, value, options, onChange, disable
         .glass-dropdown-item {
           padding: 10px 18px;
           cursor: pointer;
-          color: #e6eef9;
+          color: #f1f5f9;
           font-size: 1rem;
           transition: background 0.15s, color 0.15s;
         }
         .glass-dropdown-item:hover, .glass-dropdown-item.selected {
           background: rgba(59,130,246,0.13);
-          color: #bfe0ff;
+          color: #cbd5e1;
         }
       `}</style>
     </div>
