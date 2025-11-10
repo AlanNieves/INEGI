@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { api, type PrefillPayload, type LinkVerify } from "../lib/api";
 import { useFolios } from "../contexts/FoliosContext";
 import FormCasePractices, {
@@ -7,9 +7,8 @@ import FormCasePractices, {
 } from "../features/casos-practicos/FormCasePractices";
 import PrivacyModal from "../components/PrivacyModal";
 
-
 type PrefillFlat = {
-  convocatoria: string;
+  convocatoria: string; 
   unidadAdministrativa: string;
   concurso: string;
   puesto: string;
@@ -20,6 +19,8 @@ type PrefillFlat = {
 
 export default function FormPage() {
   const { token = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const isEditMode = searchParams.get("edit") === "true";
   const { selectedFolios, setSelectedFolios } = useFolios();
   const [verif, setVerif] = useState<LinkVerify | null>(null);
   const [prefill, setPrefill] = useState<PrefillPayload | null>(null);
@@ -51,7 +52,25 @@ export default function FormPage() {
       setErr(null);
       
       try {
-        // 1) Verificar token
+        // En modo edición, solo necesitamos cargar datos del localStorage
+        // No validamos el link porque puede estar expirado o usado
+        if (isEditMode) {
+          // Crear un objeto de verificación simulado para modo edición
+          setVerif({ valid: true });
+          // Intentar obtener prefill para tener datos base, pero no es crítico si falla
+          try {
+            const p = await api.prefillExam(token);
+            setPrefill(p);
+          } catch {
+            // En modo edición, el prefill no es crítico
+            // Los datos se cargarán desde localStorage
+            console.log("Modo edición: usando datos de localStorage");
+          }
+          setLoading(false);
+          return;
+        }
+        
+        // Modo normal: Verificar token
         const v = await api.verifyLink(token);
         setVerif(v);
         if (!v.valid) {
@@ -74,20 +93,23 @@ export default function FormPage() {
         setLoading(false);
       }
     })();
-  }, [token]);
+  }, [token, isEditMode, setSelectedFolios]);
 
   // Mostrar el aviso de privacidad justo al entrar, solo si el link es válido
+  // NOTA: En modo edición, saltamos el aviso de privacidad (ya fue aceptado)
   useEffect(() => {
     try {
-      if (!loading && verif?.valid) {
+      if (!loading && verif?.valid && !isEditMode) {
         const key = `consent:${token}`;
         const seen = localStorage.getItem(key) === "1";
         setPrivacyOpen(!seen);
       }
     } catch {
-      setPrivacyOpen(true);
+      if (!isEditMode) {
+        setPrivacyOpen(true);
+      }
     }
-  }, [loading, verif, token]);
+  }, [loading, verif, token, isEditMode]);
 
   // Handler cuando el usuario acepta el aviso (envía al backend y persiste local)
   const handleAcceptPrivacy = async ({ fullName }: { fullName: string }) => {
@@ -99,7 +121,7 @@ export default function FormPage() {
     }
     setPrivacySubmitting(true);
     try {
-  // El backend valida el campo tipo contra un enum; usar un valor permitido.
+  // El backend valida el campo `tipo` contra un enum; usar un valor permitido.
   // Valores válidos según backend: 'uso_app' | 'conclusion_examen'
   await api.postConsent(token, { tipo: "uso_app", nombreDeclarante: fullName, aceptado: true });
       try {
@@ -115,7 +137,23 @@ export default function FormPage() {
 
   // Preferimos los 6 campos planos de /api/exams/prefill
   // y caemos al header anidado de verify si hiciera falta.
+  // En modo edición, si no hay prefill, devolvemos un objeto vacío
+  // porque los datos se cargarán desde localStorage
   const readonlyData: PrefillFlat | null = useMemo(() => {
+    // En modo edición sin prefill, retornar objeto vacío
+    // Los datos se cargarán desde localStorage en FormCasePractices
+    if (isEditMode && !prefill) {
+      return {
+        convocatoria: "",
+        unidadAdministrativa: "",
+        concurso: "",
+        puesto: "",
+        codigoPuesto: "",
+        nombreEspecialista: "",
+        folio: "",
+      };
+    }
+
     const flat = (prefill as any) as PrefillFlat | null;
 
     // Si ya tenemos la respuesta plana del back, úsala tal cual.
@@ -152,7 +190,7 @@ export default function FormPage() {
       nombreEspecialista: String(esp ?? ""),
       folio: String(folio ?? ""),
     };
-  }, [prefill, verif]);
+  }, [prefill, verif, isEditMode]);
 
   // Memoizar initialData para evitar recrear el objeto en cada render
   const initialDataMemo = useMemo(() => ({
@@ -173,24 +211,29 @@ export default function FormPage() {
   }), [readonlyData]);
 
   if (loading) {
-    return <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow p-6">Cargando…</div>;
+    return <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="glass-panel p-8 md:p-10 text-cyan-100">Cargando…</div>
+    </div>;
   }
 
   // Token inválido / expirado / error general
   if ((verif && !verif.valid) || err) {
     return (
-      <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow p-6">
-        <h1 className="text-xl font-semibold mb-2">No se puede abrir el examen</h1>
-        <p className="text-gray-600">
-          Motivo: <span className="font-mono">{err ?? verif?.reason ?? "desconocido"}</span>
-        </p>
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="glass-panel p-8 md:p-10">
+          <h1 className="text-xl font-semibold mb-2 text-cyan-100">No se puede abrir el examen</h1>
+          <p className="text-cyan-300">
+            Motivo: <span className="font-mono">{err ?? verif?.reason ?? "desconocido"}</span>
+          </p>
+        </div>
       </div>
     );
   }
 
   // Formulario
   return (
-    <div className="mx-auto max-w-3xl bg-white rounded-2xl shadow p-6">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="glass-panel p-8 md:p-10">
       {/* Aviso de privacidad obligatorio (no se puede cerrar sin aceptar) */}
       <PrivacyModal
         open={privacyOpen}
@@ -200,22 +243,30 @@ export default function FormPage() {
       />
       {privacyError && (
         <div className="mb-4">
-          <p className="text-sm text-red-700">{privacyError}</p>
+          <p className="text-sm text-red-300">{privacyError}</p>
         </div>
       )}
-      {/* 🆕 Banner informativo para modo batch */}
-      {isBatchMode && (selectedFolios.length > 0 || batchFolios.length > 0) && (
-        <div className="mb-6 p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl">
-          <h3 className="text-lg font-bold text-emerald-900 mb-2">
-            📋 Modo de Generación en Lote
+      {/* Banner informativo para modo edición */}
+      {isEditMode && (
+        <div className="mb-6 p-4 bg-blue-900/20 border-2 border-blue-700/30 rounded-xl">
+          <h3 className="text-lg font-bold text-blue-100 mb-2">
+            Editando Formulario
           </h3>
-          <p className="text-sm text-emerald-800">
+        </div>
+      )}
+      {/* Banner informativo para modo batch */}
+      {isBatchMode && (selectedFolios.length > 0 || batchFolios.length > 0) && (
+        <div className="mb-6 p-4 bg-cyan-900/20 border-2 border-cyan-700/30 rounded-xl">
+          <h3 className="text-lg font-bold text-cyan-100 mb-2">
+            Modo de Generación en Lote
+          </h3>
+          <p className="text-sm text-cyan-300">
             Has seleccionado <strong>{selectedFolios.length || batchFolios.length} folios</strong>. 
             Llena el formulario una vez y descarga los documentos en lote al final.
           </p>
           <div className="mt-2 flex flex-wrap gap-1">
             {(selectedFolios.length > 0 ? selectedFolios : batchFolios).map((folio: string, idx: number) => (
-              <span key={idx} className="px-2 py-1 bg-emerald-200 text-emerald-900 rounded text-xs font-mono">
+              <span key={idx} className="px-2 py-1 bg-cyan-800/40 text-cyan-100 border border-cyan-600/30 rounded text-xs font-mono">
                 {folio}
               </span>
             ))}
@@ -228,26 +279,38 @@ export default function FormPage() {
         token={token}
         key={token}
         isBatchMode={isBatchMode}
+        isEditMode={isEditMode}
         initialData={initialDataMemo}
       />
 
-      {/* 🆕 Botones de descarga en lote (solo en modo batch) */}
+      {/* Botones de descarga en lote (solo en modo batch) */}
       {isBatchMode && formData && selectedFolios.length > 0 && (
-        <div className="mt-8 p-6 bg-gray-50 rounded-xl border-2 border-gray-200">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">
-            📦 Descargar Documentos en Lote
+        <div className="mt-8 p-6 bg-cyan-900/10 rounded-xl border-2 border-cyan-700/20">
+          <h3 className="text-xl font-bold text-cyan-100 mb-4">
+            Descargar Documentos en Lote
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-cyan-300 mb-4">
             Genera y descarga archivos ZIP con documentos para todos los folios seleccionados:
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <DownloadFE casos={formData.casos || []} />
-            <DownloadFA casos={formData.casos || []} />
-            
+            {/* Los botones individuales se han eliminado - ahora todo se genera desde "Artefactos" en SavedForms */}
           </div>
         </div>
       )}
+      
+      <style>{`
+        .glass-panel {
+          background: rgba(18, 28, 48, 0.72);
+          border: 1.5px solid rgba(80, 180, 255, 0.09);
+          box-shadow: 0 8px 40px rgba(14,165,233,0.10), 0 1px 0 rgba(255,255,255,0.02);
+          backdrop-filter: blur(18px) saturate(120%);
+          -webkit-backdrop-filter: blur(18px) saturate(120%);
+          border-radius: 24px;
+          transition: box-shadow 0.2s;
+        }
+      `}</style>
+      </div>
     </div>
   );
 }

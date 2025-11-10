@@ -193,8 +193,8 @@ export default function SavedForms() {
   if (rows.length === 0) {
     return (
       <section className="w-full max-w-5xl mt-8 darkmode-savedforms">
-        <h2 className="text-xl font-semibold text-cyan-100">Formularios generados</h2>
-        <p className="text-sm text-cyan-300 mt-1">Aún no hay envíos registrados en este navegador.</p>
+        <h2 className="text-xl font-semibold text-slate-100">Formularios generados</h2>
+        <p className="text-sm text-slate-300 mt-1">Aún no hay envíos registrados en este navegador.</p>
         <style>{darkmodeStyles}</style>
       </section>
     );
@@ -204,25 +204,33 @@ export default function SavedForms() {
     <section
       className="w-full max-w-5xl mx-auto my-10 p-8 rounded-3xl shadow-xl glass-panel"
     >
-      <h2 className="text-xl font-semibold text-cyan-100">Formularios generados</h2>
+      <h2 className="text-xl font-semibold text-slate-100">Formularios generados</h2>
       {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
 
-      <div className="mt-3 divide-y rounded-2xl border border-cyan-900 bg-[#0a101a]/80 overflow-hidden shadow-xl">
+      <div className="mt-3 divide-y rounded-2xl border border-slate-900 bg-[#0a101a]/80 overflow-hidden shadow-xl">
         {rows.map((r) => (
           <div key={r.token} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-[#0a1a2f]/80 to-[#0a223f]/70 hover:from-[#0e223a]/90 hover:to-[#0a2a4f]/80 transition">
             <div>
-              <div className="font-medium text-cyan-100">
+              <div className="font-medium text-slate-100">
                 Formulario — {r.nombreEspecialista || r.form?.nombreEspecialista || "Especialista"}
               </div>
-              <div className="text-sm text-cyan-300">
+              <div className="text-sm text-slate-300">
                 {r.concurso || r.form?.concurso || "Concurso"} · {new Date(r.savedAt).toLocaleString()}
               </div>
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => window.location.href = `/form/${r.token}?edit=true`}
+                disabled={!r.ok}
+                className="px-3 py-2 rounded-xl border border-blue-400 text-blue-100 bg-blue-900/30 hover:bg-blue-800/60 shadow transition disabled:opacity-50"
+                title="Editar formulario"
+              >
+                Editar
+              </button>
+              <button
                 onClick={() => handleArtefacts(r.token)}
                 disabled={!r.ok || busyToken === r.token}
-                className="px-3 py-2 rounded-xl border border-cyan-400 text-cyan-100 bg-cyan-900/30 hover:bg-cyan-800/60 shadow transition disabled:opacity-50"
+                className="px-3 py-2 rounded-xl border border-slate-400 text-slate-100 bg-slate-900/30 hover:bg-slate-800/60 shadow transition disabled:opacity-50"
                 title="Descargar formularios (ZIP)"
               >
                 Descargar Formularios
@@ -253,8 +261,8 @@ const darkmodeStyles = `
   padding-bottom: 32px;
 }
 .darkmode-savedforms h2 {
-  color: #bfe0ff;
-  text-shadow: 0 2px 16px #3b82f6cc;
+  color: #cbd5e1;
+  text-shadow: 0 2px 16px #64748bcc;
 }
 .darkmode-savedforms .divide-y > * + * {
   border-top: 1px solid rgba(59,130,246,0.10);

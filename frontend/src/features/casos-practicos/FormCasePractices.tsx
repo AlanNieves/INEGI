@@ -118,11 +118,13 @@ export default function FormCasePractices({
   initialData,
   token, // ← NUEVO: token del link para el POST
   isBatchMode = false, // ← NUEVO: indica si está en modo batch (oculta botón Finalizar)
+  isEditMode = false, // ← NUEVO: indica si está en modo edición
 }: {
   onChange: (data: EstructuraPayload, isValid: boolean) => void;
   initialData?: Partial<Encabezado>;
   token: string;
   isBatchMode?: boolean;
+  isEditMode?: boolean;
 }) {
   // Carga inicial desde localStorage (lazy initializer)
   const [data, setData] = useState<EstructuraPayload>(() => {
@@ -132,7 +134,11 @@ export default function FormCasePractices({
         const parsed = JSON.parse(saved);
         const migrated = migrateIfNeeded(parsed);
         if (migrated) {
-          // Si hay initialData, fusionarlo con los datos guardados
+          // En modo edición, retornar SOLO los datos guardados sin fusionar con initialData
+          if (isEditMode) {
+            return migrated;
+          }
+          // Si NO es modo edición y hay initialData, fusionarlo con los datos guardados
           if (initialData) {
             const updatedHeader = { ...migrated, ...initialData };
             const updatedCasos = migrated.casos.map((caso, index) => ({
@@ -165,8 +171,9 @@ export default function FormCasePractices({
   const hasBeenSavedToHistory = useRef(false);
 
   // Actualizar datos cuando cambien los initialData
+  // PERO solo si NO estamos en modo edición (para preservar los datos guardados)
   useEffect(() => {
-    if (initialData) {
+    if (initialData && !isEditMode) {
       setData(prevData => {
         const updatedHeader = { ...prevData, ...initialData };
         const updatedCasos = prevData.casos.map((caso, index) => ({
@@ -176,7 +183,7 @@ export default function FormCasePractices({
         return { ...updatedHeader, casos: updatedCasos };
       });
     }
-  }, [initialData]);
+  }, [initialData, isEditMode]);
 
   // Persistencia automática
   useEffect(() => {
@@ -331,7 +338,34 @@ export default function FormCasePractices({
     setServerError(null);
     setDownloadUrl(null);
     try {
-      // Enviar respuestas al backend para guardar la información
+      // En modo edición, solo actualizamos localStorage sin enviar al backend
+      // porque el link ya fue usado y los datos ya están en el servidor
+      if (isEditMode) {
+        // Obtener examId y responsesUrl del índice existente
+        const INDEX_KEY = "inegi_cp_index_v1";
+        const raw = localStorage.getItem(INDEX_KEY);
+        const idx = raw ? (JSON.parse(raw) as any[]) : [];
+        const existingIndex = idx.findIndex((item: any) => item.token === token);
+        
+        if (existingIndex !== -1) {
+          // Actualizar el índice con la nueva fecha de modificación
+          idx[existingIndex] = {
+            ...idx[existingIndex],
+            nombreEspecialista: data?.nombreEspecialista || data?.casos?.[0]?.encabezado?.nombreEspecialista,
+            concurso: data?.concurso || data?.casos?.[0]?.encabezado?.concurso,
+            savedAt: new Date().toISOString(),
+          };
+          localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
+        }
+        
+        // Los datos ya están en localStorage por la persistencia automática
+        // Mostrar mensaje de éxito
+        alert("Formulario actualizado exitosamente. Los cambios se han guardado localmente y se usarán para generar los documentos.");
+        setSubmitting(false);
+        return;
+      }
+
+      // Modo normal: Enviar respuestas al backend para guardar la información
       const res = await fetch(`/api/exams/${encodeURIComponent(token)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,7 +420,7 @@ export default function FormCasePractices({
   const c = data.casos[activeIndex];
 
   return (
-    <form className="bg-white/70 backdrop-blur rounded-3xl shadow-xl p-6 md:p-8 space-y-6" onSubmit={(e) => e.preventDefault()}>
+    <form className="bg-cyan-950/40 backdrop-blur rounded-3xl shadow-xl p-6 md:p-8 space-y-6 border border-cyan-800/30" onSubmit={(e) => e.preventDefault()}>
       {/* Tabs de casos + acciones */}
       <div className="flex flex-wrap items-center gap-2">
         {data.casos.map((_, i) => (
@@ -395,7 +429,7 @@ export default function FormCasePractices({
             type="button"
             onClick={() => setActiveIndex(i)}
             className={`px-3 py-1.5 rounded-full text-sm border transition
-              ${activeIndex === i ? "bg-cyan-800 text-white border-cyan-800" : "bg-white text-cyan-800 border-cyan-300 hover:bg-cyan-50"}`}
+              ${activeIndex === i ? "bg-cyan-600 text-white border-cyan-600" : "bg-cyan-900/40 text-cyan-100 border-cyan-700/50 hover:bg-cyan-800/60"}`}
             aria-current={activeIndex === i ? "page" : undefined}
           >
             Caso {i + 1}
@@ -407,8 +441,8 @@ export default function FormCasePractices({
           onClick={addCase}
           disabled={data.casos.length >= 3}
           className={`ml-2 px-3 py-1.5 rounded-full text-sm border transition
-            ${data.casos.length >= 3 ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
-                                      : "bg-white text-cyan-800 border-cyan-300 hover:bg-cyan-50"}`}
+            ${data.casos.length >= 3 ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed"
+                                      : "bg-cyan-900/40 text-cyan-100 border-cyan-700/50 hover:bg-cyan-800/60"}`}
           title="Agregar caso (máximo 3)"
         >
           + Agregar caso
@@ -418,7 +452,7 @@ export default function FormCasePractices({
           <button
             type="button"
             onClick={() => removeCase(activeIndex)}
-            className="px-3 py-1.5 rounded-full text-sm border border-red-300 text-red-700 hover:bg-red-50 transition"
+            className="px-3 py-1.5 rounded-full text-sm border border-red-400/50 text-red-200 bg-red-900/30 hover:bg-red-800/50 transition"
             title="Eliminar caso actual"
           >
             Eliminar caso
@@ -519,7 +553,19 @@ export default function FormCasePractices({
         label="I. Temas de la guía de estudio *"
         value={c.temasGuia}
         onChange={(v) => setCaseField(activeIndex, "temasGuia", v)}
-        hint="Copie aquí los temas de la guía en que se basa el planteamiento."
+        hint={
+          <>
+            Copie aquí los temas de la guía en que se basa el planteamiento.{" "}
+            <a
+              href="https://www.inegi.org.mx/app/spc/guias.aspx"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cyan-400 hover:text-cyan-300 underline"
+            >
+              Ver guías INEGI
+            </a>
+          </>
+        }
       />
       <AreaField
         label="II. Planteamiento del caso práctico *"
@@ -534,7 +580,7 @@ export default function FormCasePractices({
 
       {/* IV. Aspectos por caso */}
       <fieldset className="border border-cyan-300 rounded-2xl p-4 space-y-4">
-        <legend className="px-2 text-cyan-900 font-semibold">
+        <legend className="px-3 text-cyan-100 font-semibold bg-cyan-900/30 rounded-md -mx-3 inline-block">
           IV. Aspectos a evaluar y puntaje por criterio (0–100)
         </legend>
 
@@ -558,8 +604,8 @@ export default function FormCasePractices({
                 onClick={() => removeAspecto(activeIndex, j)}
                 disabled={c.aspectos.length <= 1}
                 className={`px-3 py-2 rounded-lg border transition
-                  ${c.aspectos.length <= 1 ? "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed"
-                                            : "border-red-300 text-red-700 hover:bg-red-50"}`}
+                  ${c.aspectos.length <= 1 ? "border-cyan-800/30 text-cyan-500/50 bg-cyan-950/40 cursor-not-allowed"
+                                            : "border-red-400/50 text-red-200 bg-red-900/30 hover:bg-red-800/50"}`}
                 title="Eliminar aspecto"
               >
                 Eliminar
@@ -574,13 +620,13 @@ export default function FormCasePractices({
             onClick={() => addAspecto(activeIndex)}
             disabled={c.aspectos.length >= 10}
             className={`px-4 py-2 rounded-xl transition border
-              ${c.aspectos.length >= 10 ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
-                                        : "bg-white text-cyan-800 border-cyan-300 hover:bg-cyan-50"}`}
+              ${c.aspectos.length >= 10 ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed"
+                                        : "bg-cyan-900/40 text-cyan-100 border-cyan-700/50 hover:bg-cyan-800/60"}`}
           >
             Agregar aspecto
           </button>
 
-          <div className="font-semibold text-cyan-900">
+          <div className="font-semibold text-cyan-100">
             TOTAL: <span className={
               totalByCase(activeIndex) === 100 
                 ? "text-green-600" 
@@ -609,7 +655,9 @@ export default function FormCasePractices({
         {allValid
           ? isBatchMode
             ? "Formulario completo. Desplázate hacia abajo para descargar los documentos en lote."
-            : "Formulario completo. Ya puedes generar el PDF desde el botón 'Finalizar'."
+            : isEditMode
+              ? "Formulario completo. Ya puedes actualizar los cambios desde el botón 'Finalizar'."
+              : "Formulario completo. Ya puedes generar el PDF desde el botón 'Finalizar'."
           : "Completa los campos marcados con * y al menos 1 aspecto con puntaje (0–100) en cada caso. La suma total debe ser 100."}
       </p>
 
@@ -623,11 +671,11 @@ export default function FormCasePractices({
             disabled={!allValid || submitting || !token}
             className={`px-4 py-2 rounded-xl border transition
               ${!allValid || submitting || !token
-                ? "bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
-                : "bg-cyan-800 text-white border-cyan-800 hover:bg-cyan-700"}`}
+                ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed"
+                : "bg-cyan-600 text-white border-cyan-600 hover:bg-cyan-700"}`}
             title={!token ? "Falta token del link" : "Enviar formulario"}
           >
-            {submitting ? "Generando PDF..." : "Finalizar"}
+            {submitting ? (isEditMode ? "Actualizando..." : "Generando PDF...") : (isEditMode ? "Actualizar" : "Finalizar")}
           </button>
         )}
 
@@ -637,7 +685,7 @@ export default function FormCasePractices({
             target="_blank"
             rel="noopener noreferrer"
             download
-            className="px-4 py-2 rounded-xl border bg-white text-cyan-800 border-cyan-300 hover:bg-cyan-50"
+            className="px-4 py-2 rounded-xl border bg-cyan-900/40 text-cyan-100 border-cyan-700/50 hover:bg-cyan-800/60"
           >
             Descargar respuestas (PDF)
           </a>
@@ -645,7 +693,7 @@ export default function FormCasePractices({
       </div>
 
       {serverError && (
-        <p className="text-sm text-red-700 text-right">{serverError}</p>
+        <p className="text-sm text-red-300 text-right">{serverError}</p>
       )}
     </form>
   );
@@ -664,14 +712,14 @@ function TextField({
 }) {
   return (
     <label className={`flex flex-col ${className}`}>
-      <span className="text-sm text-cyan-900 mb-1">{label}</span>
+      <span className="text-sm text-cyan-200 mb-1">{label}</span>
       <input
         value={value}
         onChange={(e) => !disabled && onChange(e.target.value)}
         disabled={disabled}
-        className={`rounded-xl border border-cyan-300 px-3 py-2 text-center focus:outline-none focus:ring-2
-          ${disabled ? "bg-gray-100 text-gray-600 cursor-not-allowed pointer-events-none"
-                     : "bg-white/80 focus:ring-cyan-500"}`}
+        className={`rounded-xl border px-3 py-2 text-center focus:outline-none focus:ring-2
+          ${disabled ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed pointer-events-none"
+                     : "bg-cyan-900/30 text-cyan-100 border-cyan-700/50 focus:ring-cyan-500 focus:border-cyan-500"}`}
       />
     </label>
   );
@@ -689,16 +737,16 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col">
-      <span className="text-sm text-cyan-900 mb-1">{label}</span>
+      <span className="text-sm text-cyan-200 mb-1">{label}</span>
       <input
         type="number"
         value={Number.isFinite(value) ? value : ""}
         min={min} max={max}
         onChange={(e) => !disabled && onChange(e.target.value === "" ? NaN : Number(e.target.value))}
         disabled={disabled}
-        className={`rounded-xl border border-cyan-300 px-3 py-2 text-center focus:outline-none focus:ring-2
-          ${disabled ? "bg-gray-100 text-gray-600 cursor-not-allowed pointer-events-none"
-                     : "bg-white/80 focus:ring-cyan-500"}`}
+        className={`rounded-xl border px-3 py-2 text-center focus:outline-none focus:ring-2
+          ${disabled ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed pointer-events-none"
+                     : "bg-cyan-900/30 text-cyan-100 border-cyan-700/50 focus:ring-cyan-500 focus:border-cyan-500"}`}
       />
     </label>
   );
@@ -714,15 +762,15 @@ function DateField({
 }) {
   return (
     <label className="flex flex-col">
-      <span className="text-sm text-cyan-900 mb-1">{label}</span>
+      <span className="text-sm text-cyan-200 mb-1">{label}</span>
       <input
         type="date"
         value={value}
         onChange={(e) => !disabled && onChange(e.target.value)}
         disabled={disabled}
-        className={`rounded-xl border border-cyan-300 px-3 py-2 text-center focus:outline-none focus:ring-2
-          ${disabled ? "bg-gray-100 text-gray-600 cursor-not-allowed pointer-events-none"
-                     : "bg-white/80 focus:ring-cyan-500"}`}
+        className={`rounded-xl border px-3 py-2 text-center focus:outline-none focus:ring-2
+          ${disabled ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed pointer-events-none"
+                     : "bg-cyan-900/30 text-cyan-100 border-cyan-700/50 focus:ring-cyan-500 focus:border-cyan-500"}`}
       />
     </label>
   );
@@ -739,14 +787,14 @@ function SelectField({
 }) {
   return (
     <label className="flex flex-col">
-      <span className="text-sm text-cyan-900 mb-1">{label}</span>
+      <span className="text-sm text-cyan-200 mb-1">{label}</span>
       <select
         value={value}
         onChange={(e) => !disabled && onChange(e.target.value)}
         disabled={disabled}
-        className={`rounded-xl border border-cyan-300 px-3 py-2 text-center focus:outline-none focus:ring-2
-          ${disabled ? "bg-gray-100 text-gray-600 cursor-not-allowed pointer-events-none"
-                     : "bg-white/80 focus:ring-cyan-500"}`}
+        className={`rounded-xl border px-3 py-2 text-center focus:outline-none focus:ring-2
+          ${disabled ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed pointer-events-none"
+                     : "bg-cyan-900/30 text-cyan-100 border-cyan-700/50 focus:ring-cyan-500 focus:border-cyan-500"}`}
       >
         <option value="">Selecciona…</option>
         {options.map((op) => <option key={op} value={op}>{op}</option>)}
@@ -761,22 +809,22 @@ function AreaField({
   label: string;
   value: string;
   onChange: (v: string) => void;
-  hint?: string;
+  hint?: React.ReactNode;
   disabled?: boolean;
 }) {
   return (
     <label className="flex flex-col">
-      <span className="text-sm text-cyan-900 mb-1">{label}</span>
+      <span className="text-sm text-cyan-200 mb-1">{label}</span>
       <textarea
         value={value}
         onChange={(e) => !disabled && onChange(e.target.value)}
         rows={4}
         disabled={disabled}
-        className={`rounded-xl border border-cyan-300 px-3 py-2 text-center focus:outline-none focus:ring-2
-          ${disabled ? "bg-gray-100 text-gray-600 cursor-not-allowed pointer-events-none"
-                     : "bg-white/80 focus:ring-cyan-500"}`}
+        className={`rounded-xl border px-3 py-2 text-center focus:outline-none focus:ring-2
+          ${disabled ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed pointer-events-none"
+                     : "bg-cyan-900/30 text-cyan-100 border-cyan-700/50 focus:ring-cyan-500 focus:border-cyan-500"}`}
       />
-      {hint && <span className="text-xs text-gray-600 mt-1">{hint}</span>}
+      {hint && <span className="text-xs text-cyan-400 mt-1">{hint}</span>}
     </label>
   );
 }
@@ -804,7 +852,7 @@ function MinutesField({
 
   return (
     <label className="flex flex-col">
-      <span className="text-sm text-cyan-900 mb-1">{label}</span>
+      <span className="text-sm text-cyan-200 mb-1">{label}</span>
       <input
         type="number"
         min={1}
@@ -819,11 +867,11 @@ function MinutesField({
           onChange(clamped);
         }}
         disabled={disabled}
-        className={`rounded-xl border border-cyan-300 px-3 py-2 text-center focus:outline-none focus:ring-2
-          ${disabled ? "bg-gray-100 text-gray-600 cursor-not-allowed pointer-events-none"
-                     : "bg-white/80 focus:ring-cyan-500"}`}
+        className={`rounded-xl border px-3 py-2 text-center focus:outline-none focus:ring-2
+          ${disabled ? "bg-cyan-950/40 text-cyan-500/50 border-cyan-800/30 cursor-not-allowed pointer-events-none"
+                     : "bg-cyan-900/30 text-cyan-100 border-cyan-700/50 focus:ring-cyan-500 focus:border-cyan-500"}`}
       />
-      <span className="text-xs text-gray-600 mt-1">
+      <span className="text-xs text-cyan-400 mt-1">
         {Number.isFinite(valueMinutes) && valueMinutes > 0
           ? `Equivale a ${toHHMM(valueMinutes)} (hh:mm)`
           : "Rango permitido: 1 a 120 minutos"}

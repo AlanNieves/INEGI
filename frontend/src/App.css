@@ -97,4 +97,15 @@ body, #root {
   margin-bottom: 14rem !important; /* Ajusta según el tamaño máximo de tu dropdown */
 }
 
+.footer-inegi {
+  margin-top: 2rem;
+  padding: 1.5rem 0;
+}
+
+.footer-text {
+  color: #e0e7ff;
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
 

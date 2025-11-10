@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import "./App.css";
-import Navbar from "./components/Navbar";
 import PrivacyModal from "./components/PrivacyModal";
 import { useLockBodyScroll } from "./hooks/useLockBodyScroll";
 import HomePage from "./pages/HomePage";
@@ -20,7 +19,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
       <Routes>
         <Route
           path="/"

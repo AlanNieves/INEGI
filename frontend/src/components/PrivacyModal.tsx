@@ -113,14 +113,14 @@ export default function PrivacyModal({
       aria-labelledby="privacy-title"
       aria-describedby="privacy-desc"
     >
-      <div ref={dialogRef} className="mx-4 w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+      <div ref={dialogRef} className="mx-4 w-full max-w-3xl rounded-2xl glass-panel shadow-2xl">
         <form className="px-8 py-8 md:px-12 md:py-10" onSubmit={onSubmit}>
-          <h2 id="privacy-title" className="text-2xl md:text-3xl font-semibold text-gray-900">
+          <h2 id="privacy-title" className="text-2xl md:text-3xl font-semibold text-cyan-100">
             Aviso de privacidad
           </h2>
 
           <div className="mt-6">
-            <label className="block text-sm md:text-base font-medium text-gray-700" htmlFor="fullName">
+            <label className="block text-sm md:text-base font-medium text-cyan-200" htmlFor="fullName">
               Nombre completo
             </label>
             <input
@@ -130,33 +130,33 @@ export default function PrivacyModal({
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Escribe tu nombre completo"
-              className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mt-2 w-full rounded-lg border border-cyan-700/50 bg-cyan-900/30 px-4 py-3 text-cyan-100 placeholder:text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
             />
           </div>
 
-          <p id="privacy-desc" className="mt-4 text-sm md:text-base leading-7 text-gray-700">
-            Yo, <span className="font-semibold">{fullName || "[Nombre completo]"}</span>, en mi calidad de especialista,
+          <p id="privacy-desc" className="mt-4 text-sm md:text-base leading-7 text-cyan-200">
+            Yo, <span className="font-semibold text-cyan-100">{fullName || "[Nombre completo]"}</span>, en mi calidad de especialista,
             reconozco y acepto que es mi responsabilidad garantizar la confidencialidad de la información relacionada con
             este proceso. Ningún servidor público ajeno al mismo podrá tener acceso a su contenido, salvo en los casos
             expresamente autorizados conforme a la normativa aplicable.
           </p>
 
-          <label className="mt-6 flex items-start gap-3 text-sm md:text-base text-gray-700">
+          <label className="mt-6 flex items-start gap-3 text-sm md:text-base text-cyan-200">
             <input
               type="checkbox"
               checked={checked}
               onChange={(e) => setChecked(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="mt-1 h-4 w-4 rounded border-cyan-700 text-cyan-600 focus:ring-cyan-500"
             />
             <span>
               Declaro que he leído y acepto el Aviso de Privacidad y que los datos proporcionados son correctos.
             </span>
           </label>
 
-          {localError && <p className="mt-4 text-sm text-red-700">{localError}</p>}
+          {localError && <p className="mt-4 text-sm text-red-300">{localError}</p>}
 
           {!canAccept && (
-            <p className="mt-3 text-sm text-orange-700">
+            <p className="mt-3 text-sm text-orange-300">
               Para continuar debes:
               <span className="block ml-4">• Escribir tu nombre completo (mínimo 3 caracteres)</span>
               <span className="block ml-4">• Marcar la casilla de aceptación del aviso</span>
@@ -169,7 +169,7 @@ export default function PrivacyModal({
               type="submit"
               disabled={!canAccept || submitting}
               className={`inline-flex items-center rounded-lg px-6 py-3 text-base font-semibold text-white transition ${
-                !canAccept || submitting ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                !canAccept || submitting ? "bg-cyan-700/50 cursor-not-allowed" : "bg-cyan-600 hover:bg-cyan-700"
               }`}
             >
               {submitting ? "Aceptando…" : "Aceptar y continuar"}
