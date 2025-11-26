@@ -176,7 +176,7 @@ export async function prefillByToken(tokenHex: string) {
   const especialistaId = (plaza as any)?.especialistaId ?? hdr.especialistaId;
   if (especialistaNombre === '' && especialistaId && isOid(String(especialistaId))) {
     const esp = await Especialista.findById(new Types.ObjectId(String(especialistaId))).lean();
-    especialistaNombre = (esp as any)?.nombreCompleto || (esp as any)?.nombre || '';
+    especialistaNombre = (esp as any)?.nombre || '';
   }
 
   // Buscar folio en la tabla aspirantes usando convocatoriaId

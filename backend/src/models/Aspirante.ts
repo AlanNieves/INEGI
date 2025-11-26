@@ -4,6 +4,7 @@ const AspiranteSchema = new Schema(
   {
     convocatoriaId: { type: String, required: true, index: true },
     concursoId: { type: String, required: true, index: true },
+    plazaId: { type: Types.ObjectId, ref: "Plaza", index: true }, // 🆕 Relación explícita
     folio: { type: String, required: true, unique: true, trim: true },
     aspiranteName: { type: String, required: true, trim: true },
     aspiranteNameNorm: { type: String, trim: true },
@@ -20,6 +21,7 @@ export type Aspirante = {
   _id: string;
   convocatoriaId: string;
   concursoId: string;
+  plazaId?: string; // 🆕 Opcional para compatibilidad con datos existentes
   folio: string;
   aspiranteName: string;
   aspiranteNameNorm?: string;

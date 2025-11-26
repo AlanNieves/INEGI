@@ -1,6 +1,8 @@
 // src/api/aspirantes/aspirantes.router.ts
 import { Router } from "express";
 import Aspirante from "../../models/Aspirante";
+import Convocatoria from "../../models/Convocatoria";
+import Concurso from "../../models/Concurso";
 
 const router = Router();
 
@@ -39,11 +41,10 @@ router.get("/by-plaza", async (req, res, next) => {
   try {
     const { convocatoriaId, concursoId, plazaId } = req.query;
 
-    console.log("🔍 [DEBUG] aspirantes/by-plaza params:", {
+    console.log("🔍 [aspirantes/by-plaza] Parámetros recibidos:", {
       convocatoriaId,
       concursoId,
-      plazaId,
-      query: req.query
+      plazaId
     });
 
     if (!convocatoriaId || !concursoId) {
@@ -52,81 +53,34 @@ router.get("/by-plaza", async (req, res, next) => {
       });
     }
 
-    // Primero, necesitamos obtener los nombres/códigos de la convocatoria y concurso
-    // porque el frontend envía IDs pero la tabla aspirantes puede tener IDs diferentes
-    
-    // Importar los modelos necesarios
-    const Convocatoria = require("../../models/Convocatoria").default;
-    const Concurso = require("../../models/Concurso").default;
-    
-    // Buscar convocatoria y concurso para obtener sus códigos/nombres
-    const [convocatoria, concurso] = await Promise.all([
-      Convocatoria.findById(String(convocatoriaId)).select("_id codigo nombre convocatoria").lean(),
-      Concurso.findById(String(concursoId)).select("_id codigo nombre concurso").lean(),
-    ]);
-    
-    console.log("🔍 [DEBUG] convocatoria encontrada:", { 
-      _id: convocatoria?._id, 
-      codigo: convocatoria?.codigo,
-      nombre: convocatoria?.nombre,
-      convocatoria: convocatoria?.convocatoria 
-    });
-    console.log("🔍 [DEBUG] concurso encontrado:", { 
-      _id: concurso?._id, 
-      nombre: concurso?.nombre, 
-      codigo: concurso?.codigo,
-      concurso: concurso?.concurso 
-    });
-    
-    // Preparar códigos para buscar en aspirantes - probar múltiples campos
-    const convocatoriaCodigo = convocatoria?.codigo || convocatoria?.nombre || convocatoria?.convocatoria || String(convocatoriaId);
-    const concursoCodigo = concurso?.nombre || concurso?.codigo || concurso?.concurso || String(concursoId);
-    
-    console.log("🔍 [DEBUG] buscando aspirantes con códigos:", { convocatoriaCodigo, concursoCodigo });
-
-    // Buscar aspirantes por nombres/códigos con múltiples combinaciones
+    // Buscar directamente por los IDs - forma más simple
     const query: any = {
-      $or: [
-        // Buscar por códigos/nombres exactos
-        {
-          convocatoriaName: convocatoriaCodigo,
-          concursoName: String(concursoCodigo),
-        },
-        // Buscar por IDs exactos (backup)
-        {
-          convocatoriaId: String(convocatoriaId),
-          concursoId: String(concursoId),
-        },
-        // Buscar con nombres alternativos si existen
-        {
-          convocatoriaName: convocatoria?.nombre || convocatoria?.convocatoria,
-          concursoName: String(concursoCodigo),
-        },
-        // Buscar con cualquier variación de códigos
-        {
-          convocatoriaName: { $in: ["004/2024", convocatoriaCodigo, String(convocatoriaId)] },
-          concursoName: { $in: [String(concursoCodigo), "109001"] },
-        }
-      ]
+      convocatoriaId: String(convocatoriaId),
+      concursoId: String(concursoId)
     };
 
-    console.log("🔍 [DEBUG] query de búsqueda:", JSON.stringify(query, null, 2));
+    console.log("🔍 [aspirantes/by-plaza] Query:", query);
 
     const aspirantes = await Aspirante.find(query)
-    .select("_id folio aspiranteName aspiranteNameNorm convocatoriaName concursoName convocatoriaId concursoId")
-    .sort({ aspiranteName: 1 })
-    .limit(100) // Limitar a 100 para evitar sobrecarga
-    .lean();
+      .select("_id folio aspiranteName convocatoriaId concursoId")
+      .sort({ folio: 1 })
+      .limit(200)
+      .lean();
 
-    console.log("🔍 [DEBUG] aspirantes encontrados:", aspirantes.length);
-    console.log("🔍 [DEBUG] primer aspirante:", aspirantes[0]);
+    console.log(`🔍 [aspirantes/by-plaza] Encontrados: ${aspirantes.length}`);
+    if (aspirantes.length > 0) {
+      console.log("🔍 [aspirantes/by-plaza] Primer resultado:", aspirantes[0]);
+    }
 
-    // Formatear respuesta para el frontend
+    // Formatear respuesta
     const formattedAspirantes = aspirantes.map(asp => ({
-      _id: asp._id,
+      _id: String(asp._id),
       folio: asp.folio,
+      aspiranteName: asp.aspiranteName,
       nombre: asp.aspiranteName,
-      label: `${asp.folio} - ${asp.aspiranteName}`, // Para mostrar en el dropdown
+      label: `${asp.folio} - ${asp.aspiranteName}`,
+      convocatoriaId: asp.convocatoriaId,
+      concursoId: asp.concursoId,
     }));
 
     return res.json({
@@ -134,10 +88,12 @@ router.get("/by-plaza", async (req, res, next) => {
       aspirantes: formattedAspirantes,
     });
   } catch (error: any) {
-    console.error("[aspirantes] Error:", error.message);
+    console.error("[aspirantes/by-plaza] Error completo:", error);
+    console.error("[aspirantes/by-plaza] Stack:", error.stack);
     return res.status(500).json({ 
-      message: "Error interno del servidor",
-      error: error.message 
+      message: "Error al buscar aspirantes",
+      error: error.message,
+      details: error.stack
     });
   }
 });
@@ -157,6 +113,189 @@ router.get("/:id", async (req, res, next) => {
     }
 
     return res.json(aspirante);
+  } catch (error: any) {
+    console.error("[aspirantes] Error:", error.message);
+    return res.status(500).json({ 
+      message: "Error interno del servidor",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/aspirantes
+ * Crear nuevo aspirante
+ */
+router.post("/", async (req, res, next) => {
+  try {
+    const { 
+      convocatoriaId, 
+      concursoId, 
+      plazaId,
+      folio, 
+      aspiranteName,
+      convocatoriaName,
+      concursoName 
+    } = req.body;
+
+    // Validaciones
+    if (!folio || !folio.trim()) {
+      return res.status(400).json({ message: "El folio es requerido" });
+    }
+
+    if (!aspiranteName || !aspiranteName.trim()) {
+      return res.status(400).json({ message: "El nombre del aspirante es requerido" });
+    }
+
+    if (!convocatoriaId || !concursoId) {
+      return res.status(400).json({ message: "Convocatoria y concurso son requeridos" });
+    }
+
+    // Verificar que el folio no exista
+    const existingFolio = await Aspirante.findOne({ folio: folio.trim() });
+    if (existingFolio) {
+      return res.status(400).json({ message: "El folio ya existe" });
+    }
+
+    const newAspirante = new Aspirante({
+      convocatoriaId,
+      concursoId,
+      plazaId: plazaId || undefined,
+      folio: folio.trim(),
+      aspiranteName: aspiranteName.trim(),
+      aspiranteNameNorm: aspiranteName.trim().toLowerCase(),
+      convocatoriaName: convocatoriaName?.trim() || convocatoriaId,
+      concursoName: concursoName?.trim() || concursoId,
+    });
+
+    await newAspirante.save();
+
+    return res.status(201).json({
+      _id: String(newAspirante._id),
+      convocatoriaId: newAspirante.convocatoriaId,
+      concursoId: newAspirante.concursoId,
+      plazaId: newAspirante.plazaId,
+      folio: newAspirante.folio,
+      aspiranteName: newAspirante.aspiranteName,
+      convocatoriaName: newAspirante.convocatoriaName,
+      concursoName: newAspirante.concursoName,
+    });
+  } catch (error: any) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "El folio ya existe" });
+    }
+    console.error("[aspirantes] Error:", error.message);
+    return res.status(500).json({ 
+      message: "Error interno del servidor",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * PUT /api/aspirantes/:id
+ * Actualizar aspirante existente
+ */
+router.put("/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { 
+      convocatoriaId, 
+      concursoId, 
+      plazaId,
+      folio, 
+      aspiranteName,
+      convocatoriaName,
+      concursoName 
+    } = req.body;
+
+    // Validaciones
+    if (!folio || !folio.trim()) {
+      return res.status(400).json({ message: "El folio es requerido" });
+    }
+
+    if (!aspiranteName || !aspiranteName.trim()) {
+      return res.status(400).json({ message: "El nombre del aspirante es requerido" });
+    }
+
+    if (!convocatoriaId || !concursoId) {
+      return res.status(400).json({ message: "Convocatoria y concurso son requeridos" });
+    }
+
+    // Verificar que el folio no exista en otro aspirante
+    const existingFolio = await Aspirante.findOne({ 
+      folio: folio.trim(),
+      _id: { $ne: id }
+    });
+    
+    if (existingFolio) {
+      return res.status(400).json({ message: "El folio ya existe en otro aspirante" });
+    }
+
+    const updated = await Aspirante.findByIdAndUpdate(
+      id,
+      {
+        convocatoriaId,
+        concursoId,
+        plazaId: plazaId || undefined,
+        folio: folio.trim(),
+        aspiranteName: aspiranteName.trim(),
+        aspiranteNameNorm: aspiranteName.trim().toLowerCase(),
+        convocatoriaName: convocatoriaName?.trim() || convocatoriaId,
+        concursoName: concursoName?.trim() || concursoId,
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Aspirante no encontrado" });
+    }
+
+    return res.json({
+      _id: String(updated._id),
+      convocatoriaId: updated.convocatoriaId,
+      concursoId: updated.concursoId,
+      plazaId: updated.plazaId,
+      folio: updated.folio,
+      aspiranteName: updated.aspiranteName,
+      convocatoriaName: updated.convocatoriaName,
+      concursoName: updated.concursoName,
+    });
+  } catch (error: any) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "El folio ya existe" });
+    }
+    console.error("[aspirantes] Error:", error.message);
+    return res.status(500).json({ 
+      message: "Error interno del servidor",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * DELETE /api/aspirantes/:id
+ * Eliminar aspirante
+ */
+router.delete("/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { confirmacion } = req.body;
+
+    // Validar confirmación
+    if (confirmacion !== 'DELETE') {
+      return res.status(400).json({ 
+        message: 'Debe escribir DELETE para confirmar la eliminación' 
+      });
+    }
+
+    const deleted = await Aspirante.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Aspirante no encontrado" });
+    }
+
+    return res.status(204).send();
   } catch (error: any) {
     console.error("[aspirantes] Error:", error.message);
     return res.status(500).json({ 

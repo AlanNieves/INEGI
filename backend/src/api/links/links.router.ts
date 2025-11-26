@@ -338,13 +338,13 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     const jefeNombre = cleanse(String(clientPrefill?.jefeNombre || ""));
     if (idEsp) {
       esp = await Especialista.findOne(
-        { $or: [{ _id: idEsp }, { email: idEsp.toLowerCase() }, { curp: idEsp.toUpperCase() }, { nombreCompleto: idEsp }, { hash: idEsp }] },
-        "_id nombreCompleto email curp"
+        { $or: [{ _id: idEsp }, { correo: idEsp.toLowerCase() }, { nombre: idEsp }, { hash: idEsp }] },
+        "_id nombre correo puesto"
       ).lean();
     }
     if (!esp && jefeNombre) {
-      const created = await Especialista.create({ nombreCompleto: jefeNombre });
-      esp = { _id: created._id, nombreCompleto: jefeNombre } as any;
+      const created = await Especialista.create({ nombre: jefeNombre });
+      esp = { _id: created._id, nombre: jefeNombre } as any;
     }
     if (!esp?._id) {
       return res.status(400).json({ message: "invalid especialistaId (no se pudo resolver o crear especialista)" });
@@ -384,7 +384,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       puesto: puestoNombre,
       unidadAdministrativa: unidadAdm,
       folio,
-      jefeNombre: jefeNombre || (esp as any)?.nombreCompleto || "",
+      jefeNombre: jefeNombre || (esp as any)?.nombre || "",
       radicacion,
     };
 

@@ -111,18 +111,18 @@ export async function resolveEspecialista(idOr?: string, jefeNombre?: string) {
   const or: any[] = [];
   if (idOr) {
     if (isOid(idOr)) {
-      const byId = await Especialista.findById(toOid(idOr), "_id nombreCompleto email curp").lean();
+      const byId = await Especialista.findById(toOid(idOr), "_id nombre correo puesto").lean();
       if (byId) return byId;
     }
     or.push(
       { _id: idOr },
       { email: String(idOr).toLowerCase() },
       { curp: String(idOr).toUpperCase() },
-      { nombreCompleto: idOr },
+      { nombre: idOr },
       { hash: idOr }
     );
   }
-  if (jefeNombre) or.push({ nombreCompleto: jefeNombre });
+  if (jefeNombre) or.push({ nombre: jefeNombre });
 
-  return Especialista.findOne({ $or: or }, "_id nombreCompleto email curp").lean();
+  return Especialista.findOne({ $or: or }, "_id nombre correo puesto").lean();
 }
