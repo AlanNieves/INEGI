@@ -34,50 +34,99 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     console.log('📋 Ejemplos de plazas en BD:', JSON.stringify(samplePlazas.map(p => ({
       _id: p._id,
       convocatoria: p.convocatoria,
+      convocatoria_id: p.convocatoria_id,
       concurso_id: p.concurso_id,
       concurso: p.concurso,
       codigo: p.codigo
     })), null, 2));
 
-    // Construir filtro MÁS FLEXIBLE: buscar por convocatoria Y concurso_id
-    // El concursoId puede ser el _id del concurso O el valor del campo concurso_id
+    // Buscar el concurso para obtener sus variantes
     const Concurso = (await import('../../models/Concurso')).default;
-    
-    // Buscar el concurso de forma flexible (por _id o por concurso_id)
     let concursoDoc = null;
     try {
-      if (isOid(concursoId)) {
-        concursoDoc = await Concurso.findById(concursoId).lean();
-      }
-      if (!concursoDoc) {
-        concursoDoc = await Concurso.findOne({ concurso_id: concursoId }).lean();
-      }
+      // Usar collection.findOne() para evitar cast a ObjectId
+      concursoDoc = await Concurso.collection.findOne({
+        $or: [
+          { _id: concursoId } as any,
+          { concurso_id: concursoId }
+        ]
+      } as any);
     } catch (err) {
-      console.log('⚠️ Error buscando concurso, continuando con búsqueda simple:', err);
+      console.log('⚠️ Error buscando concurso:', err);
     }
-    
+
     console.log('📋 Concurso encontrado:', concursoDoc);
-    
-    // Construir array de posibles valores de concurso_id para búsqueda flexible
+
+    // Buscar la convocatoria para obtener sus variantes
+    const Convocatoria = (await import('../../models/Convocatoria')).default;
+    let convocatoriaDoc = null;
+    try {
+      // Usar collection.findOne() para evitar cast a ObjectId
+      convocatoriaDoc = await Convocatoria.collection.findOne({
+        $or: [
+          { _id: convocatoriaId } as any,
+          { nombre: convocatoriaId }
+        ]
+      } as any);
+    } catch (err) {
+      console.log('⚠️ Error buscando convocatoria:', err);
+    }
+
+    console.log('📋 Convocatoria encontrada:', convocatoriaDoc);
+
+    // Construir arrays de posibles valores
+    const possibleConvocatoriaIds = [convocatoriaId];
+    if (convocatoriaDoc) {
+      if (convocatoriaDoc._id && String(convocatoriaDoc._id) !== convocatoriaId) {
+        possibleConvocatoriaIds.push(String(convocatoriaDoc._id));
+      }
+      if (convocatoriaDoc.nombre && convocatoriaDoc.nombre !== convocatoriaId) {
+        possibleConvocatoriaIds.push(convocatoriaDoc.nombre);
+      }
+    }
+
     const possibleConcursoIds = [concursoId];
-    
+    let concursoNumber: any = concursoId;
     if (concursoDoc) {
-      // Agregar el _id del concurso
-      if (concursoDoc._id) {
+      if (concursoDoc._id && String(concursoDoc._id) !== concursoId) {
         possibleConcursoIds.push(String(concursoDoc._id));
       }
-      // Agregar el concurso_id del documento
       if (concursoDoc.concurso_id && concursoDoc.concurso_id !== concursoId) {
         possibleConcursoIds.push(concursoDoc.concurso_id);
       }
+      if (concursoDoc.nombre) {
+        concursoNumber = concursoDoc.nombre;
+        if (String(concursoDoc.nombre) !== concursoId) {
+          possibleConcursoIds.push(String(concursoDoc.nombre));
+        }
+      }
     }
-    
+
+    // Convertir concursoNumber a número si es posible
+    if (typeof concursoNumber === 'string' && !isNaN(Number(concursoNumber))) {
+      concursoNumber = Number(concursoNumber);
+    }
+
+    // Filtro flexible: busca por todas las posibles variantes
     const filter: any = {
-      convocatoria: convocatoriaId,
-      concurso_id: { $in: possibleConcursoIds }
+      $and: [
+        {
+          $or: [
+            { convocatoria: { $in: possibleConvocatoriaIds } },
+            { convocatoria_id: { $in: possibleConvocatoriaIds } }
+          ]
+        },
+        {
+          $or: [
+            { concurso_id: { $in: possibleConcursoIds } },
+            { concurso: concursoNumber },
+            { concurso: { $in: possibleConcursoIds } }
+          ]
+        }
+      ]
     };
 
-    console.log('🔎 Filtro aplicado:', filter);
+    console.log('🔎 Filtro aplicado:', JSON.stringify(filter, null, 2));
 
     // Usar aggregate para hacer lookup con especialistas
     const pipeline: any[] = [

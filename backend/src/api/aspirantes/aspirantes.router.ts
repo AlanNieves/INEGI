@@ -53,13 +53,107 @@ router.get("/by-plaza", async (req, res, next) => {
       });
     }
 
-    // Buscar directamente por los IDs - forma más simple
+    // Debug: Obtener algunos aspirantes de ejemplo para verificar estructura
+    const sampleAspirantes = await Aspirante.collection.find().limit(3).toArray();
+    console.log('📋 Ejemplos de aspirantes en BD:', JSON.stringify(sampleAspirantes.map(a => ({
+      _id: a._id,
+      convocatoriaId: a.convocatoriaId,
+      concursoId: a.concursoId,
+      folio: a.folio
+    })), null, 2));
+
+    // Buscar el concurso para obtener sus variantes
+    const Concurso = (await import('../../models/Concurso')).default;
+    let concursoDoc = null;
+    try {
+      // Usar collection.findOne() para evitar cast a ObjectId
+      concursoDoc = await Concurso.collection.findOne({
+        $or: [
+          { _id: concursoId },
+          { concurso_id: concursoId }
+        ]
+      });
+    } catch (err) {
+      console.log('⚠️ [aspirantes] Error buscando concurso:', err);
+    }
+
+    console.log('📋 [aspirantes] Concurso encontrado:', concursoDoc);
+
+    // Buscar la convocatoria para obtener sus variantes
+    const Convocatoria = (await import('../../models/Convocatoria')).default;
+    let convocatoriaDoc = null;
+    try {
+      // Usar collection.findOne() para evitar cast a ObjectId
+      convocatoriaDoc = await Convocatoria.collection.findOne({
+        $or: [
+          { _id: convocatoriaId },
+          { nombre: convocatoriaId }
+        ]
+      });
+    } catch (err) {
+      console.log('⚠️ [aspirantes] Error buscando convocatoria:', err);
+    }
+
+    console.log('📋 [aspirantes] Convocatoria encontrada:', convocatoriaDoc);
+
+    // Construir arrays de posibles valores para convocatoriaId
+    const possibleConvocatoriaIds = [String(convocatoriaId)];
+    if (convocatoriaDoc) {
+      if (convocatoriaDoc._id && String(convocatoriaDoc._id) !== String(convocatoriaId)) {
+        possibleConvocatoriaIds.push(String(convocatoriaDoc._id));
+      }
+      if (convocatoriaDoc.nombre) {
+        possibleConvocatoriaIds.push(String(convocatoriaDoc.nombre));
+      }
+    }
+
+    // Construir arrays de posibles valores para concursoId
+    const possibleConcursoIds = [String(concursoId)];
+    if (concursoDoc) {
+      if (concursoDoc._id && String(concursoDoc._id) !== String(concursoId)) {
+        possibleConcursoIds.push(String(concursoDoc._id));
+      }
+      if (concursoDoc.concurso_id && !possibleConcursoIds.includes(String(concursoDoc.concurso_id))) {
+        possibleConcursoIds.push(String(concursoDoc.concurso_id));
+      }
+      if (concursoDoc.nombre && !possibleConcursoIds.includes(String(concursoDoc.nombre))) {
+        possibleConcursoIds.push(String(concursoDoc.nombre));
+      }
+    }
+    
+    // IMPORTANTE: También buscar todos los concursos que tengan el mismo nombre
+    // porque los aspirantes pueden estar relacionados con concursos hermanos
+    if (concursoDoc && concursoDoc.nombre) {
+      try {
+        const Concurso = (await import('../../models/Concurso')).default;
+        const concursosRelacionados = await Concurso.collection.find(
+          { nombre: concursoDoc.nombre },
+          { projection: { _id: 1, concurso_id: 1 } }
+        ).toArray();
+        
+        console.log(`📋 Concursos relacionados con nombre ${concursoDoc.nombre}:`, concursosRelacionados.length);
+        
+        for (const conc of concursosRelacionados) {
+          if (conc._id && !possibleConcursoIds.includes(String(conc._id))) {
+            possibleConcursoIds.push(String(conc._id));
+          }
+          if (conc.concurso_id && !possibleConcursoIds.includes(String(conc.concurso_id))) {
+            possibleConcursoIds.push(String(conc.concurso_id));
+          }
+        }
+      } catch (err) {
+        console.log('⚠️ Error buscando concursos relacionados:', err);
+      }
+    }
+
+    // Buscar de forma flexible por todas las variantes posibles
     const query: any = {
-      convocatoriaId: String(convocatoriaId),
-      concursoId: String(concursoId)
+      convocatoriaId: { $in: possibleConvocatoriaIds },
+      concursoId: { $in: possibleConcursoIds }
     };
 
-    console.log("🔍 [aspirantes/by-plaza] Query:", query);
+    console.log("🔍 [aspirantes/by-plaza] Posibles convocatoriaIds:", possibleConvocatoriaIds);
+    console.log("🔍 [aspirantes/by-plaza] Posibles concursoIds:", possibleConcursoIds);
 
     const aspirantes = await Aspirante.find(query)
       .select("_id folio aspiranteName convocatoriaId concursoId")

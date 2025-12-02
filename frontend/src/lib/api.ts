@@ -124,10 +124,12 @@ export const api = {
 
   // Plazas
   async listPlazas(convocatoriaId: string, concursoId: string) {
+    console.log('🔍 api.listPlazas - Buscando con:', { convocatoriaId, concursoId });
     const { data } = await http.get<PlazaRow[]>(
       "/plazas",
       { params: { convocatoriaId, concursoId } }
     );
+    console.log('✅ api.listPlazas - Plazas encontradas:', data.length);
     return data;
   },
 
