@@ -321,7 +321,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     const conc = await resolveConc(String(concursoId), rawConcCodigo, conv?._id as any);
     const concIdFinal = (conc?._id as any) || String(concursoId) || (plaza as any).concurso_id || (plaza as any).concursoId;
 
-    if (DEBUG) console.debug('🔍 [links] Resolución de IDs:', { 
+    if (DEBUG) console.debug('[links] Resolución de IDs:', { 
       conv: conv?._id, 
       conc: conc?._id,
       convIdFinal, 
@@ -333,7 +333,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
 
     // Si aún así no tenemos IDs, aborta con detalle claro
     if (!convIdFinal || !concIdFinal) {
-      console.error('❌ [links] IDs no resueltos:', { 
+      console.error('[links] IDs no resueltos:', { 
         convIdFinal, 
         concIdFinal,
         convocatoriaId,
@@ -353,23 +353,23 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     const idEsp = cleanse(String(especialistaId || ""));
     const jefeNombre = cleanse(String(clientPrefill?.jefeNombre || ""));
     
-    if (DEBUG) console.debug('🔍 [links] Resolviendo especialista:', { especialistaId, idEsp, jefeNombre });
+    if (DEBUG) console.debug('[links] Resolviendo especialista:', { especialistaId, idEsp, jefeNombre });
     
     if (idEsp) {
       esp = await Especialista.findOne(
         { $or: [{ _id: idEsp }, { correo: idEsp.toLowerCase() }, { nombre: idEsp }, { hash: idEsp }] },
         "_id nombre correo puesto"
       ).lean();
-      if (DEBUG) console.debug('🔍 [links] Especialista encontrado por ID:', esp);
+      if (DEBUG) console.debug('[links] Especialista encontrado por ID:', esp);
     }
     if (!esp && jefeNombre) {
-      if (DEBUG) console.debug('🔍 [links] Creando especialista con nombre:', jefeNombre);
+      if (DEBUG) console.debug('[links] Creando especialista con nombre:', jefeNombre);
       const created = await Especialista.create({ nombre: jefeNombre });
       esp = { _id: created._id, nombre: jefeNombre } as any;
-      if (DEBUG) console.debug('🔍 [links] Especialista creado:', esp);
+      if (DEBUG) console.debug('[links] Especialista creado:', esp);
     }
     if (!esp?._id) {
-      console.error('❌ [links] No se pudo resolver especialista:', { especialistaId, jefeNombre });
+      console.error('[links] No se pudo resolver especialista:', { especialistaId, jefeNombre });
       return res.status(400).json({ message: "invalid especialistaId (no se pudo resolver o crear especialista)" });
     }
 

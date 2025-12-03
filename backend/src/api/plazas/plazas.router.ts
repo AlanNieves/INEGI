@@ -24,7 +24,7 @@ router.get('/', validateQueryStrings('convocatoriaId', 'concursoId'), async (req
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 GET /plazas - Parámetros recibidos:', { convocatoriaId, concursoId });
+      console.log('[plazas] Parámetros recibidos:', { convocatoriaId, concursoId });
     }
 
     // Validar que los parámetros requeridos estén presentes
@@ -37,10 +37,10 @@ router.get('/', validateQueryStrings('convocatoriaId', 'concursoId'), async (req
     // Debug: Queries de diagnóstico solo en desarrollo
     if (process.env.NODE_ENV !== 'production') {
       const totalPlazas = await Plaza.countDocuments();
-      console.log(`📊 Total de plazas en BD: ${totalPlazas}`);
+      console.log(`Total de plazas en BD: ${totalPlazas}`);
       
       const samplePlazas = await Plaza.collection.find().limit(3).toArray();
-      console.log('📋 Ejemplos de plazas en BD:', JSON.stringify(samplePlazas.map(p => ({
+      console.log('Ejemplos de plazas en BD:', JSON.stringify(samplePlazas.map(p => ({
         _id: p._id,
         convocatoria: p.convocatoria,
         convocatoria_id: p.convocatoria_id,
@@ -63,12 +63,12 @@ router.get('/', validateQueryStrings('convocatoriaId', 'concursoId'), async (req
       } as any);
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
-        console.log('⚠️ Error buscando concurso:', err);
+        console.log('Error buscando concurso:', err);
       }
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('📋 Concurso encontrado:', concursoDoc);
+      console.log('Concurso encontrado:', concursoDoc);
     }
 
     // Buscar la convocatoria para obtener sus variantes
@@ -84,12 +84,12 @@ router.get('/', validateQueryStrings('convocatoriaId', 'concursoId'), async (req
       } as any);
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
-        console.log('⚠️ Error buscando convocatoria:', err);
+        console.log('Error buscando convocatoria:', err);
       }
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('📋 Convocatoria encontrada:', convocatoriaDoc);
+      console.log('Convocatoria encontrada:', convocatoriaDoc);
     }
 
     // Construir arrays de posibles valores
@@ -145,7 +145,7 @@ router.get('/', validateQueryStrings('convocatoriaId', 'concursoId'), async (req
     };
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔎 Filtro aplicado:', JSON.stringify(filter, null, 2));
+      console.log('Filtro aplicado:', JSON.stringify(filter, null, 2));
     }
 
     // Usar aggregate para hacer lookup con especialistas

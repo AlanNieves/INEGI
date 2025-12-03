@@ -50,7 +50,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 [aspirantes/by-plaza] Parámetros recibidos:', {
+      console.log('[aspirantes/by-plaza] Parámetros recibidos:', {
         convocatoriaId,
         concursoId,
         plazaId
@@ -66,7 +66,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
     // Debug: Obtener algunos aspirantes de ejemplo para verificar estructura (solo en desarrollo)
     if (process.env.NODE_ENV !== 'production') {
       const sampleAspirantes = await Aspirante.collection.find().limit(3).toArray();
-      console.log('📋 Ejemplos de aspirantes en BD:', JSON.stringify(sampleAspirantes.map(a => ({
+      console.log('Ejemplos de aspirantes en BD:', JSON.stringify(sampleAspirantes.map(a => ({
         _id: a._id,
         convocatoriaId: a.convocatoriaId,
         concursoId: a.concursoId,
@@ -86,11 +86,11 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
         ]
       });
     } catch (err) {
-      console.log('⚠️ [aspirantes] Error buscando concurso:', err);
+      console.log('[aspirantes] Error buscando concurso:', err);
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('📋 [aspirantes] Concurso encontrado:', concursoDoc);
+      console.log('[aspirantes] Concurso encontrado:', concursoDoc);
     }
 
     // Buscar la convocatoria para obtener sus variantes
@@ -106,12 +106,12 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
       });
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
-        console.log('⚠️ [aspirantes] Error buscando convocatoria:', err);
+        console.log('[aspirantes] Error buscando convocatoria:', err);
       }
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('📋 [aspirantes] Convocatoria encontrada:', convocatoriaDoc);
+      console.log('[aspirantes] Convocatoria encontrada:', convocatoriaDoc);
     }
 
     // Construir arrays de posibles valores para convocatoriaId
@@ -150,7 +150,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
         ).limit(50).toArray(); // Limitar a 50 concursos relacionados
 
         if (process.env.NODE_ENV !== 'production') {
-          console.log(`📋 Concursos relacionados con nombre ${concursoDoc.nombre}:`, concursosRelacionados.length);
+          console.log(`Concursos relacionados con nombre ${concursoDoc.nombre}:`, concursosRelacionados.length);
         }
 
         for (const conc of concursosRelacionados) {
@@ -163,7 +163,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
         }
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
-          console.log('⚠️ Error buscando concursos relacionados:', err);
+          console.log('Error buscando concursos relacionados:', err);
         }
       }
     }    // Buscar de forma flexible por todas las variantes posibles
@@ -173,8 +173,8 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
     };
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 [aspirantes/by-plaza] Posibles convocatoriaIds:', possibleConvocatoriaIds);
-      console.log('🔍 [aspirantes/by-plaza] Posibles concursoIds:', possibleConcursoIds);
+      console.log('[aspirantes/by-plaza] Posibles convocatoriaIds:', possibleConvocatoriaIds);
+      console.log('[aspirantes/by-plaza] Posibles concursoIds:', possibleConcursoIds);
     }
 
     const aspirantes = await Aspirante.find(query)
@@ -184,9 +184,9 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
       .lean();
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`🔍 [aspirantes/by-plaza] Encontrados: ${aspirantes.length}`);
+      console.log(`[aspirantes/by-plaza] Encontrados: ${aspirantes.length}`);
       if (aspirantes.length > 0) {
-        console.log("🔍 [aspirantes/by-plaza] Primer resultado:", aspirantes[0]);
+        console.log("[aspirantes/by-plaza] Primer resultado:", aspirantes[0]);
       }
     }
 

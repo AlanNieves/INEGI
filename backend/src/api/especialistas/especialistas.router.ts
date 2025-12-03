@@ -161,7 +161,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     const Plaza = require('../../models/Plaza').default;
     
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 [DELETE especialista] ID a eliminar:', id);
+      console.log('[DELETE especialista] ID a eliminar:', id);
     }
     
     // Las plazas referencian al especialista con el campo especialista_id (string)
@@ -170,7 +170,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     });
     
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 [DELETE especialista] Plazas encontradas:', plazasCount);
+      console.log('[DELETE especialista] Plazas encontradas:', plazasCount);
     }
 
     if (plazasCount > 0) {

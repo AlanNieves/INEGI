@@ -108,7 +108,7 @@ export async function verifyToken(tokenHex: string) {
   const state = classifyState(link);
   if (state.code !== 'ok') throw new AppError(state.code, state.status, state.code);
 
-  // ⚠️ Antes usabas findById con plazaId (hash de 40 hex) ⇒ CastError.
+  // NOTA: Antes usabas findById con plazaId (hash de 40 hex) => CastError.
   //    Ahora resolvemos con helper seguro:
   const plaza = await findPlazaByIdOrCode(String(link!.plazaId));
   if (!plaza) throw notFound('Plaza not found');

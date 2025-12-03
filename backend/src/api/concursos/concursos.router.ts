@@ -170,7 +170,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     const Plaza = require('../../models/Plaza').default;
     
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 [DELETE concurso] Concurso a eliminar:', {
+      console.log('[DELETE concurso] Concurso a eliminar:', {
         _id: id,
         concurso_id: (concurso as any).concurso_id,
         nombre: (concurso as any).nombre
@@ -187,7 +187,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     });
     
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 [DELETE concurso] Plazas encontradas:', plazasCount);
+      console.log('[DELETE concurso] Plazas encontradas:', plazasCount);
     }
 
     if (plazasCount > 0) {
