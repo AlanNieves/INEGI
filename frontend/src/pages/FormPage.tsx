@@ -64,7 +64,6 @@ export default function FormPage() {
           } catch {
             // En modo edición, el prefill no es crítico
             // Los datos se cargarán desde localStorage
-            console.log("Modo edición: usando datos de localStorage");
           }
           setLoading(false);
           return;

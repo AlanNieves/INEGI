@@ -122,17 +122,12 @@ export default function ConcursosPage() {
         convocatoria_id: selectedConvocatoria,
         convocatoria: convocatoriaObj?.nombre || '',
       };
-      console.log('Enviando datos:', data);
       
-      let response;
       if (editingItem) {
-        console.log(`PUT /api/concursos/${editingItem._id}`);
-        response = await api.put(`/concursos/${editingItem._id}`, data);
+        await api.put(`/concursos/${editingItem._id}`, data);
       } else {
-        console.log('POST /api/concursos');
-        response = await api.post('/concursos', data);
+        await api.post('/concursos', data);
       }
-      console.log('Respuesta del servidor:', response.data);
       
       setShowForm(false);
       await loadConcursos();

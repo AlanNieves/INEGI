@@ -157,19 +157,13 @@ export default function LinkGenerator() {
       setAspirantes([]);
       if (!convId || !concId) return;
       
-      console.log('🔍 LinkGenerator - Cargando plazas y aspirantes para:', { convId, concId });
+      // Cargando datos
       
       try {
         const [plazasData, aspirantesData] = await Promise.all([
           api.listPlazas(convId, concId),
           api.listAspirantes(convId, concId),
         ]);
-        
-        console.log('✅ LinkGenerator - Datos cargados:', {
-          plazas: plazasData.length,
-          aspirantes: aspirantesData.length,
-          primeraPlaza: plazasData[0] || null
-        });
         
         setPlazas(plazasData as any);
         setAspirantes(aspirantesData);
@@ -243,14 +237,6 @@ export default function LinkGenerator() {
           radicacion: (primeraPlaza as any).radicacion || "",
         },
       };
-
-      console.log('📤 Enviando request para crear link:', {
-        convocatoriaId: body.convocatoriaId,
-        concursoId: body.concursoId,
-        plazaId: body.plazaId,
-        prefill: body.prefill,
-        foliosCount: foliosArray.length
-      });
 
       const res = await api.createLink(body);
       setSelectedFolios(foliosArray);

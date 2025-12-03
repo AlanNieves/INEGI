@@ -2,6 +2,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import Especialista from '../../models/Especialista';
+import { sanitizeString } from '../../middleware/validateRequest';
 
 const router = Router();
 const isOid = (v?: string) => !!v && Types.ObjectId.isValid(v);
@@ -60,23 +61,27 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { nombre, correo, puesto } = req.body;
 
-    // Validaciones
-    if (!nombre || !nombre.trim()) {
+    // Validaciones y sanitización
+    const nombreSanitized = sanitizeString(nombre);
+    if (!nombreSanitized) {
       return res.status(400).json({ message: 'El nombre es requerido' });
     }
 
     // Validar correo si se proporciona
-    if (correo && correo.trim()) {
+    const correoSanitized = correo ? sanitizeString(correo) : undefined;
+    if (correoSanitized) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(correo.trim())) {
+      if (!emailRegex.test(correoSanitized)) {
         return res.status(400).json({ message: 'Correo inválido' });
       }
     }
 
+    const puestoSanitized = puesto ? sanitizeString(puesto) : undefined;
+
     const newEspecialista = new Especialista({
-      nombre: nombre.trim(),
-      correo: correo?.trim() || undefined,
-      puesto: puesto?.trim() || undefined,
+      nombre: nombreSanitized,
+      correo: correoSanitized,
+      puesto: puestoSanitized,
     });
 
     await newEspecialista.save();
@@ -102,25 +107,29 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       return res.status(400).json({ message: 'ID inválido' });
     }
 
-    // Validaciones
-    if (!nombre || !nombre.trim()) {
+    // Validaciones y sanitización
+    const nombreSanitized = sanitizeString(nombre);
+    if (!nombreSanitized) {
       return res.status(400).json({ message: 'El nombre es requerido' });
     }
 
     // Validar correo si se proporciona
-    if (correo && correo.trim()) {
+    const correoSanitized = correo ? sanitizeString(correo) : undefined;
+    if (correoSanitized) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(correo.trim())) {
+      if (!emailRegex.test(correoSanitized)) {
         return res.status(400).json({ message: 'Correo inválido' });
       }
     }
 
+    const puestoSanitized = puesto ? sanitizeString(puesto) : undefined;
+
     const updated = await Especialista.findByIdAndUpdate(
       toOid(id),
       {
-        nombre: nombre.trim(),
-        correo: correo?.trim() || undefined,
-        puesto: puesto?.trim() || undefined,
+        nombre: nombreSanitized,
+        correo: correoSanitized,
+        puesto: puestoSanitized,
       },
       { new: true, runValidators: true }
     );
@@ -160,18 +169,10 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     // Verificar si hay plazas asignadas a este especialista
     const Plaza = require('../../models/Plaza').default;
     
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[DELETE especialista] ID a eliminar:', id);
-    }
-    
     // Las plazas referencian al especialista con el campo especialista_id (string)
     const plazasCount = await Plaza.countDocuments({ 
       especialista_id: id 
     });
-    
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[DELETE especialista] Plazas encontradas:', plazasCount);
-    }
 
     if (plazasCount > 0) {
       return res.status(400).json({ 

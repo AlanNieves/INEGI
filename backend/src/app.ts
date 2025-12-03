@@ -3,11 +3,22 @@ import express, { Request, Response, NextFunction } from 'express';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { apiRouter } from './api';
 import { config } from './shared/config';
 import debugPlazaRouter from './api/_debug/plaza.router';
 import triangulacionRouter from './api/triangulacion/triangulacion.router';
+import { preventNoSQLInjection } from './middleware/validateRequest';
 const app = express();
+
+// Rate limiting global
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // 100 en prod, 1000 en dev
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiadas peticiones, intente más tarde' }
+});
 
 app.use(helmet());
 app.use(
@@ -17,12 +28,19 @@ app.use(
   })
 );
 
+// Aplicar rate limiting a todas las rutas API
+app.use('/api', globalLimiter);
+
 app.use(express.static('public'));
 
 // Evita ETag/304 en dev
 app.set('etag', false);
 
 app.use(express.json({ limit: '1mb' }));
+
+// Protección contra NoSQL Injection (debe ir DESPUÉS de express.json)
+app.use(preventNoSQLInjection());
+
 app.use(
   morgan(
     'method=:method path=":url" status=:status ip=":remote-addr" rt_ms=:response-time ua=":user-agent"'
@@ -54,7 +72,11 @@ app.use(
   }
 );
 
-app.use("/api/_debug", debugPlazaRouter);
+// Endpoints de debug solo en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  app.use("/api/_debug", debugPlazaRouter);
+}
+
 // Manejo centralizado de errores (shape estable)
 app.use(
   (err: unknown, req: Request, res: Response, _next: NextFunction): void => {

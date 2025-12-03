@@ -2,6 +2,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import Convocatoria from '../../models/Convocatoria';
+import { sanitizeString } from '../../middleware/validateRequest';
 
 const router = Router();
 
@@ -50,8 +51,9 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { nombre } = req.body;
 
-    // Validaciones
-    if (!nombre || !nombre.trim()) {
+    // Validaciones y sanitización
+    const nombreSanitized = sanitizeString(nombre);
+    if (!nombreSanitized) {
       return res.status(400).json({ message: 'El nombre es requerido' });
     }
 
@@ -60,7 +62,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
     const newConvocatoria = new Convocatoria({
       _id: hash,
-      nombre: nombre.trim(),
+      nombre: nombreSanitized,
     });
 
     await newConvocatoria.save();
@@ -83,15 +85,16 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { nombre } = req.body;
 
-    // Validaciones
-    if (!nombre || !nombre.trim()) {
+    // Validaciones y sanitización
+    const nombreSanitized = sanitizeString(nombre);
+    if (!nombreSanitized) {
       return res.status(400).json({ message: 'El nombre es requerido' });
     }
 
     const updated = await Convocatoria.findByIdAndUpdate(
       id,
       {
-        nombre: nombre.trim(),
+        nombre: nombreSanitized,
       },
       { new: true }
     );

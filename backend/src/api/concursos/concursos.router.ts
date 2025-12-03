@@ -2,6 +2,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import Concurso from '../../models/Concurso';
+import { sanitizeString } from '../../middleware/validateRequest';
 
 const router = Router();
 
@@ -70,8 +71,9 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { concurso_id, convocatoria_id, convocatoria, nombre } = req.body;
 
-    // Validaciones
-    if (!convocatoria_id) {
+    // Validaciones y sanitización
+    const convocatoriaIdSanitized = sanitizeString(convocatoria_id);
+    if (!convocatoriaIdSanitized) {
       return res.status(400).json({ message: 'La convocatoria es requerida' });
     }
 
@@ -79,10 +81,13 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       return res.status(400).json({ message: 'El nombre (número) es requerido' });
     }
 
+    const concursoIdSanitized = concurso_id ? sanitizeString(concurso_id) : '';
+    const convocatoriaSanitized = convocatoria ? sanitizeString(convocatoria) : convocatoriaIdSanitized;
+
     const newConcurso = new Concurso({
-      concurso_id: concurso_id || '',
-      convocatoria_id,
-      convocatoria: convocatoria || convocatoria_id,
+      concurso_id: concursoIdSanitized,
+      convocatoria_id: convocatoriaIdSanitized,
+      convocatoria: convocatoriaSanitized,
       nombre: Number(nombre),
     });
 
@@ -110,8 +115,9 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { concurso_id, convocatoria_id, convocatoria, nombre } = req.body;
 
-    // Validaciones
-    if (!convocatoria_id) {
+    // Validaciones y sanitización
+    const convocatoriaIdSanitized = sanitizeString(convocatoria_id);
+    if (!convocatoriaIdSanitized) {
       return res.status(400).json({ message: 'La convocatoria es requerida' });
     }
 
@@ -119,12 +125,15 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       return res.status(400).json({ message: 'El nombre (número) es requerido' });
     }
 
+    const concursoIdSanitized = concurso_id ? sanitizeString(concurso_id) : '';
+    const convocatoriaSanitized = convocatoria ? sanitizeString(convocatoria) : convocatoriaIdSanitized;
+
     const updated = await Concurso.findByIdAndUpdate(
       id,
       {
-        concurso_id: concurso_id || '',
-        convocatoria_id,
-        convocatoria: convocatoria || convocatoria_id,
+        concurso_id: concursoIdSanitized,
+        convocatoria_id: convocatoriaIdSanitized,
+        convocatoria: convocatoriaSanitized,
         nombre: Number(nombre),
       },
       { new: true }
@@ -169,14 +178,6 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     // Las plazas pueden referenciar al concurso por: concurso_id (string) o concurso (número)
     const Plaza = require('../../models/Plaza').default;
     
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[DELETE concurso] Concurso a eliminar:', {
-        _id: id,
-        concurso_id: (concurso as any).concurso_id,
-        nombre: (concurso as any).nombre
-      });
-    }
-    
     const plazasCount = await Plaza.countDocuments({
       $or: [
         { concurso_id: id },
@@ -185,10 +186,6 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
         { concurso: Number((concurso as any).nombre) }
       ]
     });
-    
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[DELETE concurso] Plazas encontradas:', plazasCount);
-    }
 
     if (plazasCount > 0) {
       return res.status(400).json({ 

@@ -1,9 +1,10 @@
 // src/api/catalog/catalog.router.ts
-import { Router, Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
-import Convocatoria from '../../models/Convocatoria';
-import Concurso from '../../models/Concurso';
-import Especialista from '../../models/Especialista';
+import { Router, Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
+import Convocatoria from "../../models/Convocatoria";
+import Concurso from "../../models/Concurso";
+import Especialista from "../../models/Especialista";
+import { validateQueryStrings } from "../../middleware/validateRequest";
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get('/convocatorias', async (_req: Request, res: Response, next: NextFunc
 });
 
 /* ---------- Concursos ---------- */
-router.get('/concursos', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/concursos', validateQueryStrings('convocatoriaId'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { convocatoriaId } = req.query as { convocatoriaId?: string };
 

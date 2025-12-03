@@ -49,29 +49,10 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
       });
     }
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[aspirantes/by-plaza] Parámetros recibidos:', {
-        convocatoriaId,
-        concursoId,
-        plazaId
-      });
-    }
-
     if (!convocatoriaId || !concursoId) {
       return res.status(400).json({ 
         message: 'convocatoriaId y concursoId son requeridos' 
       });
-    }
-
-    // Debug: Obtener algunos aspirantes de ejemplo para verificar estructura (solo en desarrollo)
-    if (process.env.NODE_ENV !== 'production') {
-      const sampleAspirantes = await Aspirante.collection.find().limit(3).toArray();
-      console.log('Ejemplos de aspirantes en BD:', JSON.stringify(sampleAspirantes.map(a => ({
-        _id: a._id,
-        convocatoriaId: a.convocatoriaId,
-        concursoId: a.concursoId,
-        folio: a.folio
-      })), null, 2));
     }
 
     // Buscar el concurso para obtener sus variantes
@@ -86,11 +67,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
         ]
       });
     } catch (err) {
-      console.log('[aspirantes] Error buscando concurso:', err);
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[aspirantes] Concurso encontrado:', concursoDoc);
+      // Error silenciado
     }
 
     // Buscar la convocatoria para obtener sus variantes
@@ -105,13 +82,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
         ]
       });
     } catch (err) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[aspirantes] Error buscando convocatoria:', err);
-      }
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[aspirantes] Convocatoria encontrada:', convocatoriaDoc);
+      // Error silenciado
     }
 
     // Construir arrays de posibles valores para convocatoriaId
@@ -149,10 +120,6 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
           { projection: { _id: 1, concurso_id: 1 } }
         ).limit(50).toArray(); // Limitar a 50 concursos relacionados
 
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Concursos relacionados con nombre ${concursoDoc.nombre}:`, concursosRelacionados.length);
-        }
-
         for (const conc of concursosRelacionados) {
           if (conc._id && !possibleConcursoIds.includes(String(conc._id))) {
             possibleConcursoIds.push(String(conc._id));
@@ -162,9 +129,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
           }
         }
       } catch (err) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('Error buscando concursos relacionados:', err);
-        }
+        // Error silenciado
       }
     }    // Buscar de forma flexible por todas las variantes posibles
     const query: any = {
@@ -172,23 +137,11 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
       concursoId: { $in: possibleConcursoIds }
     };
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[aspirantes/by-plaza] Posibles convocatoriaIds:', possibleConvocatoriaIds);
-      console.log('[aspirantes/by-plaza] Posibles concursoIds:', possibleConcursoIds);
-    }
-
     const aspirantes = await Aspirante.find(query)
       .select('_id folio aspiranteName convocatoriaId concursoId')
       .sort({ folio: 1 })
       .limit(200)
       .lean();
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[aspirantes/by-plaza] Encontrados: ${aspirantes.length}`);
-      if (aspirantes.length > 0) {
-        console.log("[aspirantes/by-plaza] Primer resultado:", aspirantes[0]);
-      }
-    }
 
     // Formatear respuesta
     const formattedAspirantes = aspirantes.map(asp => ({
