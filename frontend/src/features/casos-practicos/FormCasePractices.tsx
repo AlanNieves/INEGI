@@ -119,12 +119,14 @@ export default function FormCasePractices({
   token, // ← NUEVO: token del link para el POST
   isBatchMode = false, // ← NUEVO: indica si está en modo batch (oculta botón Finalizar)
   isEditMode = false, // ← NUEVO: indica si está en modo edición
+  batchFolios = [], // ← NUEVO: lista de folios en modo batch
 }: {
   onChange: (data: EstructuraPayload, isValid: boolean) => void;
   initialData?: Partial<Encabezado>;
   token: string;
   isBatchMode?: boolean;
   isEditMode?: boolean;
+  batchFolios?: string[];
 }) {
   // Carga inicial desde localStorage (lazy initializer)
   const [data, setData] = useState<EstructuraPayload>(() => {
@@ -339,16 +341,13 @@ export default function FormCasePractices({
     setDownloadUrl(null);
     try {
       // En modo edición, solo actualizamos localStorage sin enviar al backend
-      // porque el link ya fue usado y los datos ya están en el servidor
       if (isEditMode) {
-        // Obtener examId y responsesUrl del índice existente
         const INDEX_KEY = "inegi_cp_index_v1";
         const raw = localStorage.getItem(INDEX_KEY);
         const idx = raw ? (JSON.parse(raw) as any[]) : [];
         const existingIndex = idx.findIndex((item: any) => item.token === token);
         
         if (existingIndex !== -1) {
-          // Actualizar el índice con la nueva fecha de modificación
           idx[existingIndex] = {
             ...idx[existingIndex],
             nombreEspecialista: data?.nombreEspecialista || data?.casos?.[0]?.encabezado?.nombreEspecialista,
@@ -358,14 +357,12 @@ export default function FormCasePractices({
           localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
         }
         
-        // Los datos ya están en localStorage por la persistencia automática
-        // Mostrar mensaje de éxito
-        alert("Formulario actualizado exitosamente. Los cambios se han guardado localmente y se usarán para generar los documentos.");
+        alert("Formulario actualizado exitosamente.");
         setSubmitting(false);
         return;
       }
 
-      // Modo normal: Enviar respuestas al backend para guardar la información
+      // Modo normal: Enviar al backend (funciona igual para 1 folio o múltiples)
       const res = await fetch(`/api/exams/${encodeURIComponent(token)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -389,10 +386,9 @@ export default function FormCasePractices({
           const INDEX_KEY = "inegi_cp_index_v1";
           const raw = localStorage.getItem(INDEX_KEY);
           const idx = raw ? (JSON.parse(raw) as any[]) : [];
-          // Verificar si ya existe este token para evitar duplicados
           const existingIndex = idx.findIndex((item: any) => item.token === token);
           if (existingIndex === -1) {
-            // Solo agregar si no existe
+            // Solo agregar si no existe (los folios vendrán del servidor en el próximo refresh)
             idx.push({
               token,
               examId,

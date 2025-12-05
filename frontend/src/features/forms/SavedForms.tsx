@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
+import DeleteConfirmationModal from "../../components/DeleteConfirmationModal";
 
 /** Claves de almacenamiento (ojo: "from" es el que ya usa tu form) */
 const FORM_KEY = (token: string) => `inegi_cp_from_v2:${token}`;
@@ -67,9 +68,48 @@ export default function SavedForms() {
   const [items, setItems] = useState<IndexItem[]>([]);
   const [busyToken, setBusyToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState<{ token: string; name: string } | null>(null);
 
+  // Cargar historial desde el servidor
   useEffect(() => {
-    setItems(readIndex());
+    const loadExamsFromServer = async () => {
+      try {
+        setLoading(true);
+        const serverExams = await api.listExams();
+        
+        // Convertir formato del servidor al formato local
+        const formattedItems: IndexItem[] = serverExams.map((exam: any) => ({
+          token: exam.token,
+          examId: exam.examId,
+          responsesUrl: exam.responsesUrl,
+          nombreEspecialista: exam.nombreEspecialista,
+          concurso: exam.concurso,
+          savedAt: exam.savedAt,
+          folios: exam.folios || [] // ← Incluir folios del servidor
+        }));
+        
+        setItems(formattedItems);
+        
+        // Actualizar localStorage como cache (índice y datos de formularios)
+        writeIndex(formattedItems);
+        
+        // Guardar los datos del formulario en localStorage para que puedan editarse/descargarse
+        serverExams.forEach((exam: any) => {
+          if (exam.formData && exam.token) {
+            localStorage.setItem(FORM_KEY(exam.token), JSON.stringify(exam.formData));
+          }
+        });
+      } catch (err) {
+        console.error('Error cargando exámenes del servidor:', err);
+        // Fallback a localStorage si falla el servidor
+        setItems(readIndex());
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExamsFromServer();
   }, []);
 
   const rows = useMemo(() => {
@@ -87,9 +127,36 @@ export default function SavedForms() {
   }, [items]);
 
   const handleDelete = (token: string) => {
-    const next = items.filter((x) => x.token !== token);
-    writeIndex(next);
-    setItems(next);
+    const item = items.find(it => it.token === token);
+    const name = item?.nombreEspecialista || item?.concurso || "Formulario";
+    setDeleteModal({ token, name });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
+    
+    const token = deleteModal.token;
+    setDeleteModal(null);
+    
+    try {
+      // Obtener examId del item
+      const item = items.find(it => it.token === token);
+      const examId = item?.examId;
+      
+      // Eliminar de la UI
+      const next = items.filter((x) => x.token !== token);
+      setItems(next);
+      writeIndex(next);
+      localStorage.removeItem(FORM_KEY(token));
+      
+      // Si tiene examId, eliminar de MongoDB en segundo plano
+      if (examId) {
+        await fetch(`/api/exams/${examId}`, { method: 'DELETE' });
+      }
+    } catch (err) {
+      console.error('Error eliminando formulario:', err);
+      setError('Error al eliminar el formulario');
+    }
   };
 
   const handleArtefacts = async (token: string) => {
@@ -103,51 +170,18 @@ export default function SavedForms() {
     try {
       setBusyToken(token);
 
-      // Preferir folios guardados en el índice (si existen)
+      // Obtener folios directamente del índice (vienen del servidor)
       const indexItem = items.find(it => it.token === token) as any | undefined;
-      let folios: string[] = [];
-      if (indexItem && Array.isArray(indexItem.folios) && indexItem.folios.length > 0) {
-        folios = indexItem.folios.map((f: any) => String(f));
-      } else {
-        // Construir lista de folios desde los casos (si hay varios)
-        folios = (form.casos || []).map((c: any) => c?.encabezado?.folio).filter((f: any) => !!f);
-      }
-
-      // Si los folios son placeholders tipo "LOTE (N folios)" o no existen,
-      // intentar recuperar la lista real de folios desde el prefill del link
-      // o desde el catálogo de aspirantes usando convocatoria/concurso.
-      const looksLikeLote = (arr: string[]) => arr.length === 0 || arr.some(s => typeof s === 'string' && s.toUpperCase().includes('LOTE'));
-
-      if (looksLikeLote(folios)) {
-        try {
-          // Intentar prefill (puede contener info de folios o datos para buscar aspirantes)
-          const prefill = await api.prefillExam((rows.find(it => it.token === token) || {}).token || token);
-
-          // prefill puede traer campos útiles
-          const maybeFolios = (prefill as any)?.header?.folios || (prefill as any)?.folios || (prefill as any)?.header?.folioList;
-          if (Array.isArray(maybeFolios) && maybeFolios.length > 0) {
-            folios = maybeFolios.map((f: any) => String(f));
-          } else {
-            // Si no hay folios explícitos, intentar obtener aspirantes por convocatoria/concurso
-            const conv = (prefill as any)?.header?.convocatoria || form.convocatoria || form.casos?.[0]?.encabezado?.convocatoria;
-            const conc = (prefill as any)?.header?.concurso || form.concurso || form.casos?.[0]?.encabezado?.concurso;
-            if (conv && conc) {
-              try {
-                const aspirantes = await api.listAspirantes(conv, conc);
-                if (Array.isArray(aspirantes) && aspirantes.length > 0) {
-                  folios = aspirantes.map((a: any) => a.folio).filter((f: any) => !!f);
-                }
-              } catch {}
-            }
-          }
-        } catch (err) {
-          // no crítico, seguimos y mostraremos error si no tenemos folios
-        }
-      }
+      const folios: string[] = (indexItem?.folios || [])
+        .filter((f: string) => f && !f.toUpperCase().includes('LOTE')); // Filtrar placeholders
 
       if (folios.length === 0) {
-        setError("No encontré folios válidos en el formulario para generar artefactos. Si este formulario fue creado como lote, genera el ZIP desde el panel de Lote.");
+        setError("No se encontraron folios válidos para este formulario. Asegúrate de que el link se generó correctamente.");
         return;
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`📦 Generando artefactos para ${folios.length} folios:`, folios);
       }
 
       const header = {
@@ -155,6 +189,10 @@ export default function SavedForms() {
         concurso: (form as any).concurso || "",
         unidadAdministrativa: (form as any).unidadAdministrativa || "",
         puesto: (form as any).puesto || "",
+        modalidad: (form as any).modalidad || "",
+        duracionMin: (form as any).duracionMin || 0,
+        nombreEspecialista: (form as any).nombreEspecialista || "",
+        fechaElaboracion: (form as any).fechaElaboracion || "",
       };
 
       const payload = { casos: form.casos, folios, header };
@@ -190,11 +228,21 @@ export default function SavedForms() {
     }
   };
 
+  if (loading) {
+    return (
+      <section className="w-full max-w-5xl mt-8 darkmode-savedforms">
+        <h2 className="text-xl font-semibold text-slate-100">Formularios generados</h2>
+        <p className="text-sm text-slate-300 mt-4">⏳ Cargando historial desde el servidor...</p>
+        <style>{darkmodeStyles}</style>
+      </section>
+    );
+  }
+
   if (rows.length === 0) {
     return (
       <section className="w-full max-w-5xl mt-8 darkmode-savedforms">
         <h2 className="text-xl font-semibold text-slate-100">Formularios generados</h2>
-        <p className="text-sm text-slate-300 mt-1">Aún no hay envíos registrados en este navegador.</p>
+        <p className="text-sm text-slate-300 mt-1">Aún no hay formularios guardados.</p>
         <style>{darkmodeStyles}</style>
       </section>
     );
@@ -228,7 +276,7 @@ export default function SavedForms() {
                 Editar
               </button>
               <button
-                onClick={() => handleArtefacts(r.token)}
+                onClick={() => { handleArtefacts(r.token).catch(err => console.error(err)); }}
                 disabled={!r.ok || busyToken === r.token}
                 className="px-3 py-2 rounded-xl border border-slate-400 text-slate-100 bg-slate-900/30 hover:bg-slate-800/60 shadow transition disabled:opacity-50"
                 title="Descargar formularios (ZIP)"
@@ -246,13 +294,20 @@ export default function SavedForms() {
           </div>
         ))}
       </div>
-      
+
       <style>{darkmodeStyles}</style>
+      
+      <DeleteConfirmationModal
+        isOpen={!!deleteModal}
+        title="Eliminar formulario"
+        message="¿Está seguro de que desea eliminar este formulario del historial?"
+        itemName={deleteModal?.name}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteModal(null)}
+      />
     </section>
   );
-}
-
-const darkmodeStyles = `
+}const darkmodeStyles = `
 .darkmode-savedforms {
   background: linear-gradient(120deg, #0a1624 0%, #0a223f 100%);
   color: #e6eef9;

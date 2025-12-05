@@ -232,7 +232,7 @@ export default function LinkGenerator() {
           plazaCodigo,
           puesto,
           unidadAdministrativa,
-          folio: `LOTE (${foliosArray.length} folios)`,
+          folio: foliosArray[0] || "", // ← Usar el primer folio en lugar de "LOTE (N folios)"
           jefeNombre,
           radicacion: (primeraPlaza as any).radicacion || "",
         },

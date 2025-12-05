@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 
 interface DeleteConfirmationModalProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ export default function DeleteConfirmationModal({
 }: DeleteConfirmationModalProps) {
   const [confirmText, setConfirmText] = useState('');
   const [error, setError] = useState('');
+  const [isPending, startTransition] = useTransition();
 
   if (!isOpen) return null;
 
@@ -27,15 +28,19 @@ export default function DeleteConfirmationModal({
       setError('Debe escribir DELETE exactamente como se muestra');
       return;
     }
-    setConfirmText('');
-    setError('');
-    onConfirm();
+    startTransition(() => {
+      setConfirmText('');
+      setError('');
+      onConfirm();
+    });
   };
 
   const handleCancel = () => {
-    setConfirmText('');
-    setError('');
-    onCancel();
+    startTransition(() => {
+      setConfirmText('');
+      setError('');
+      onCancel();
+    });
   };
 
   return (
@@ -83,7 +88,7 @@ export default function DeleteConfirmationModal({
             <button
               onClick={handleConfirm}
               className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-              disabled={!confirmText}
+              disabled={!confirmText || isPending}
             >
               Eliminar
             </button>
