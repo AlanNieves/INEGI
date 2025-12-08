@@ -81,6 +81,10 @@ export default function AdminConvocatorias() {
     
     try {
       setLoading(true);
+      console.log('Buscando plazas con:', { 
+        convocatoriaId: selectedConvocatoria, 
+        concursoId: selectedConcurso 
+      });
       
       // Llamar a la API con filtros de convocatoria y concurso
       const response = await fetch(
@@ -88,12 +92,16 @@ export default function AdminConvocatorias() {
         { credentials: 'include' }
       );
       
+      console.log('Respuesta del servidor:', response.status, response.statusText);
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        console.error('Error del servidor:', errorData);
         throw new Error(errorData.message || `Error ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('Plazas encontradas:', data.length, data);
       setConvocatorias(data);
       setError(null);
     } catch (err: any) {
@@ -132,10 +140,13 @@ export default function AdminConvocatorias() {
   };
 
   const handleFormSubmit = async (data: PlazaData) => {
+    console.log('handleFormSubmit - Datos recibidos:', data);
     try {
       if (editingConvocatoria?._id) {
+        console.log('Actualizando plaza:', editingConvocatoria._id);
         await plazasApi.update(editingConvocatoria._id, data);
       } else {
+        console.log('Creando nueva plaza');
         await plazasApi.create(data);
       }
       setShowForm(false);

@@ -156,15 +156,21 @@ export default function LinkGenerator() {
       setPlazas([]);
       setAspirantes([]);
       if (!convId || !concId) return;
-      
-      // Cargando datos
-      
+
+      console.log('🔍 LinkGenerator - Cargando plazas y aspirantes para:', { convId, concId });
+
       try {
         const [plazasData, aspirantesData] = await Promise.all([
           api.listPlazas(convId, concId),
           api.listAspirantes(convId, concId),
         ]);
-        
+
+        console.log('✅ LinkGenerator - Datos cargados:', {
+          plazas: plazasData.length,
+          aspirantes: aspirantesData.length,
+          primeraPlaza: plazasData[0] || null
+        });
+
         setPlazas(plazasData as any);
         setAspirantes(aspirantesData);
       } catch (e: any) {
@@ -232,11 +238,19 @@ export default function LinkGenerator() {
           plazaCodigo,
           puesto,
           unidadAdministrativa,
-          folio: foliosArray[0] || "", // ← Usar el primer folio en lugar de "LOTE (N folios)"
+          folio: `LOTE (${foliosArray.length} folios)`,
           jefeNombre,
           radicacion: (primeraPlaza as any).radicacion || "",
         },
       };
+
+      console.log('📤 Enviando request para crear link:', {
+        convocatoriaId: body.convocatoriaId,
+        concursoId: body.concursoId,
+        plazaId: body.plazaId,
+        prefill: body.prefill,
+        foliosCount: foliosArray.length
+      });
 
       const res = await api.createLink(body);
       setSelectedFolios(foliosArray);
@@ -262,7 +276,7 @@ export default function LinkGenerator() {
             });
             localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
           }
-        } catch {}
+        } catch { }
       }
     } catch (e: any) {
       const serverMsg =
@@ -288,8 +302,10 @@ export default function LinkGenerator() {
         Selecciona la <strong>convocatoria</strong> y el <strong>concurso</strong>. Luego, genera un link para cada plaza.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
-        <div ref={dropdownRef}>
+      <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-10 justify-items-center mb-6 mx-auto w-fit">
+
+        {/* Convocatoria */}
+        <div ref={dropdownRef} className="w-64 md:w-80">
           <GlassDropdown
             label="Convocatoria"
             value={convId}
@@ -304,30 +320,25 @@ export default function LinkGenerator() {
             onOpenChange={setDropdownOpen}
           />
         </div>
-        <GlassDropdown
-          label="Concurso"
-          value={concId}
-          options={[
-            { value: "", label: "— Seleccionar —" },
-            ...concursos.map((c) => ({
-              value: c._id,
-              label: labelConcurso(c),
-            })),
-          ]}
-          onChange={setConcId}
-          disabled={!convId}
-          onOpenChange={setDropdownOpen} // PASA EL HANDLER
-        />
-        <div className="flex items-center gap-2">
-          <button
-            className="px-4 py-2 rounded-xl bg-cyan-900 text-cyan-100 shadow disabled:opacity-50"
-            disabled
-            title="Las plazas se listan automáticamente al elegir Convocatoria y Concurso"
-          >
-            Listar plazas
-          </button>
-          {error && <span className="text-cyan-300 text-sm">{error}</span>}
+
+        {/* Concurso */}
+        <div className="w-64 md:w-80">
+          <GlassDropdown
+            label="Concurso"
+            value={concId}
+            options={[
+              { value: "", label: "— Seleccionar —" },
+              ...concursos.map((c) => ({
+                value: c._id,
+                label: labelConcurso(c),
+              })),
+            ]}
+            onChange={setConcId}
+            disabled={!convId}
+            onOpenChange={setDropdownOpen}
+          />
         </div>
+
       </div>
 
       {convId && concId && (

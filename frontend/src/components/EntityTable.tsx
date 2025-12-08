@@ -5,6 +5,8 @@ interface Column<T> {
   title: string;
   render?: (value: any, record: T) => React.ReactNode;
   width?: string;
+  headerClass?: string;   // <= NUEVO: clase para <th>
+  cellClass?: string;     // <= NUEVO: clase para <td>
 }
 
 interface EntityTableProps<T> {
@@ -44,7 +46,7 @@ export default function EntityTable<T extends Record<string, any>>({
   }
 
   return (
-    <div className="glass-panel overflow-hidden">
+    <div className="glass-panel overflow-hidden rounded-2xl">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-700">
           <thead className="bg-gray-800 bg-opacity-50">
@@ -52,14 +54,23 @@ export default function EntityTable<T extends Record<string, any>>({
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className="px-6 py-3 text-left text-xs font-medium text-blue-300 uppercase tracking-wider"
                   style={{ width: column.width }}
+                  className={`
+                    px-6 py-3 text-xs font-medium uppercase tracking-wider text-blue-300
+                    ${column.headerClass ? column.headerClass : "text-left"}
+                  `}
                 >
                   {column.title}
                 </th>
               ))}
               {(onEdit || onDelete) && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  className="
+                    px-6 py-3 
+                    text-xs font-medium uppercase tracking-wider 
+                    text-blue-300 text-center
+                  "
+                >
                   Acciones
                 </th>
               )}
@@ -67,17 +78,26 @@ export default function EntityTable<T extends Record<string, any>>({
           </thead>
           <tbody className="divide-y divide-gray-700">
             {data.map((record, index) => (
-              <tr key={record[idField] || index} className="hover:bg-gray-800 hover:bg-opacity-30 transition-colors">
+              <tr
+                key={record[idField] || index}
+                className="hover:bg-gray-800 hover:bg-opacity-30 transition-colors"
+              >
                 {columns.map((column) => (
-                  <td key={column.key} className="px-6 py-4 text-sm text-blue-100">
+                  <td
+                    key={column.key}
+                    className={`
+                      px-6 py-4 text-sm text-blue-100
+                      ${column.cellClass ? column.cellClass : ""}
+                    `}
+                  >
                     {column.render
                       ? column.render(record[column.key], record)
-                      : record[column.key] || '-'}
+                      : (record[column.key] ?? "-")}
                   </td>
                 ))}
                 {(onEdit || onDelete) && (
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
+                  <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                    <div className="flex justify-center gap-3">
                       {onEdit && (
                         <button
                           onClick={() => onEdit(record)}
@@ -103,8 +123,9 @@ export default function EntityTable<T extends Record<string, any>>({
         </table>
       </div>
       <div className="bg-gray-800 bg-opacity-30 px-6 py-3 border-t border-gray-700">
-        <p className="text-sm text-blue-200">
-          Total de registros: <span className="font-semibold">{data.length}</span>
+        <p className="text-sm text-blue-200 text-center">
+          Total de registros:{' '}
+          <span className="font-semibold text-blue-100">{data.length}</span>
         </p>
       </div>
     </div>

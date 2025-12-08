@@ -108,4 +108,159 @@ body, #root {
   opacity: 0.9;
 }
 
+/* ================================
+   ANIMACIÓN DEL MENÚ ADMIN (dropdown)
+   ================================ */
 
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-slideDown {
+  animation: slideDown 0.25s ease-out forwards;
+}
+
+/* ======== GLASS LIQUID PANEL ======== */
+
+.glass-liquid-panel {
+  position: relative;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 22px;
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  overflow: hidden;
+  padding: 32px;
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.30),
+    inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+/* luz suave arriba */
+.glass-liquid-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+      rgba(255,255,255,0.10),
+      rgba(255,255,255,0.03)
+  );
+  pointer-events: none;
+}
+
+/* brillo líquido animado */
+.glass-liquid-panel::after {
+  content: "";
+  position: absolute;
+  top: -120%;
+  left: -50%;
+  width: 250%;
+  height: 250%;
+  background: radial-gradient(
+    circle,
+    rgba(80,160,255,0.18),
+    rgba(0,0,0,0)
+  );
+  animation: liquidMovePanel 9s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes liquidMovePanel {
+  0% { transform: translate(-20%, -20%) rotate(0deg); }
+  100% { transform: translate(12%, 12%) rotate(22deg); }
+}
+
+/* ===========================
+   LIQUID GLASS TABLE PREMIUM
+   =========================== */
+
+.table-glass {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+  border-radius: 16px;
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 
+    0 12px 32px rgba(0,0,0,0.25),
+    inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+/* Header */
+.table-glass thead {
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.10) 0%,
+    rgba(255,255,255,0.05) 100%
+  );
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.table-glass thead th {
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #d4e7ff;
+  letter-spacing: 0.6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Rows */
+.table-glass tbody tr {
+  transition: background 0.25s ease, transform 0.15s ease;
+}
+
+.table-glass tbody tr:hover {
+  background: rgba(120,180,255,0.08);
+  transform: scale(1.008);
+}
+
+/* Cells */
+.table-glass tbody td {
+  padding: 14px 18px;
+  color: #e9f2ff;
+  font-size: 0.95rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+/* Last row */
+.table-glass tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Button styles inside table */
+.table-action-edit {
+  color: #7ec0ff;
+  font-weight: 500;
+  transition: color 0.15s ease, scale 0.15s ease;
+}
+
+.table-action-edit:hover {
+  color: #b3dcff;
+  scale: 1.06;
+}
+
+.table-action-delete {
+  color: #ff6b6b;
+  font-weight: 500;
+  transition: color 0.15s ease, scale 0.15s ease;
+}
+
+.table-action-delete:hover {
+  color: #ff9f9f;
+  scale: 1.06;
+}

@@ -146,6 +146,8 @@ export default function ConcursosPage() {
       key: 'nombre',
       title: 'Nombre (Número)',
       width: '100%',
+      headerClass: 'text-center',
+      cellClass: 'text-center',
     },
   ];
 

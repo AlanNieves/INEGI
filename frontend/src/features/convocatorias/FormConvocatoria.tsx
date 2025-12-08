@@ -109,6 +109,8 @@ export default function FormConvocatoria({ initialData, onSubmit, onCancel }: Fo
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
+    console.log('Datos del formulario:', formData);
+    
     // Validaciones
     if (!formData.convocatoria || !formData.concurso_id) {
       setError('Debe seleccionar convocatoria y concurso');
@@ -134,7 +136,9 @@ export default function FormConvocatoria({ initialData, onSubmit, onCancel }: Fo
     setSubmitting(true);
 
     try {
+      console.log('Enviando datos:', formData);
       await onSubmit(formData);
+      console.log('Plaza guardada exitosamente');
       // Plaza guardada exitosamente
     } catch (err: any) {
       console.error('Error al guardar plaza:', err);
@@ -209,6 +213,7 @@ export default function FormConvocatoria({ initialData, onSubmit, onCancel }: Fo
               onChange={(e) => {
                 const concId = e.target.value;
                 const conc = catalogos.concursos.find(c => c._id === concId);
+                console.log('Concurso seleccionado:', conc);
                 setFormData(prev => ({
                   ...prev,
                   concurso_id: concId,

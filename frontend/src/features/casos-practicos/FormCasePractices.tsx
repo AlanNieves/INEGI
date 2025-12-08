@@ -119,14 +119,12 @@ export default function FormCasePractices({
   token, // ← NUEVO: token del link para el POST
   isBatchMode = false, // ← NUEVO: indica si está en modo batch (oculta botón Finalizar)
   isEditMode = false, // ← NUEVO: indica si está en modo edición
-  batchFolios = [], // ← NUEVO: lista de folios en modo batch
 }: {
   onChange: (data: EstructuraPayload, isValid: boolean) => void;
   initialData?: Partial<Encabezado>;
   token: string;
   isBatchMode?: boolean;
   isEditMode?: boolean;
-  batchFolios?: string[];
 }) {
   // Carga inicial desde localStorage (lazy initializer)
   const [data, setData] = useState<EstructuraPayload>(() => {

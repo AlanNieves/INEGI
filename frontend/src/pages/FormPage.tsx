@@ -280,7 +280,6 @@ export default function FormPage() {
         isBatchMode={isBatchMode}
         isEditMode={isEditMode}
         initialData={initialDataMemo}
-        batchFolios={batchFolios}
       />
 
       {/* Botones de descarga en lote (solo en modo batch) */}
