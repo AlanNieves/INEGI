@@ -139,7 +139,6 @@ export default function FormConvocatoria({ initialData, onSubmit, onCancel }: Fo
       console.log('Enviando datos:', formData);
       await onSubmit(formData);
       console.log('Plaza guardada exitosamente');
-      // Plaza guardada exitosamente
     } catch (err: any) {
       console.error('Error al guardar plaza:', err);
       const errorMsg = err.response?.data?.message || err.message || 'Error al guardar';

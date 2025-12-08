@@ -116,9 +116,9 @@ function migrateIfNeeded(raw: any): EstructuraPayload | null {
 export default function FormCasePractices({
   onChange,
   initialData,
-  token, // ← NUEVO: token del link para el POST
-  isBatchMode = false, // ← NUEVO: indica si está en modo batch (oculta botón Finalizar)
-  isEditMode = false, // ← NUEVO: indica si está en modo edición
+  token,
+  isBatchMode = false,
+  isEditMode = false,
 }: {
   onChange: (data: EstructuraPayload, isValid: boolean) => void;
   initialData?: Partial<Encabezado>;

@@ -86,7 +86,7 @@ export default function SavedForms() {
           nombreEspecialista: exam.nombreEspecialista,
           concurso: exam.concurso,
           savedAt: exam.savedAt,
-          folios: exam.folios || [] // ← Incluir folios del servidor
+          folios: exam.folios || []
         }));
         
         setItems(formattedItems);
