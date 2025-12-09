@@ -1,0 +1,205 @@
+# =============================
+
+# README DE INSTALACION Y OPERACION — SISTEMA INEGI
+
+# (BACKEND + FRONTEND INTEGRADO)
+
+# =============================
+
+1. DESCRIPCION GENERAL
+
+Este paquete contiene:
+
+* El backend del Sistema INEGI, desarrollado en Node.js + Express + TypeScript.
+* El frontend compilado (React/Vite), ya integrado dentro del backend.
+* Scripts para iniciar, detener y reiniciar el sistema.
+* Archivo de configuracion (.env) para base de datos, puertos y permisos.
+
+El sistema esta preparado para ejecutarse en Windows 11 sin requerir IIS ni servicios adicionales.
+Todo corre en el puerto configurado (por defecto, 4000).
+
+---
+
+2. REQUERIMIENTOS DEL SISTEMA
+
+Software necesario:
+
+* Node.js version 20 LTS
+* PM2 (se instala automaticamente mediante los scripts .bat)
+* PowerShell
+
+Conectividad:
+
+* Acceso a Internet para conectarse a MongoDB Atlas
+* Permitir salida hacia dominios *.mongodb.net
+* No es necesario instalar MongoDB localmente
+
+---
+
+3. ESTRUCTURA DEL PROYECTO
+
+backend/
+dist/                  (Frontend ya compilado)
+src/                   (Codigo fuente del backend)
+templates/             (Plantillas FA/FE)
+logs/                  (Logs generados por PM2)
+ecosystem.config.js    (Configuracion PM2)
+.env                   (Archivo final de configuracion)
+.env.example           (Archivo de ejemplo)
+start.bat              (Inicia el sistema)
+stop.bat               (Detiene el sistema)
+restart.bat            (Reinicia el sistema)
+package.json
+package-lock.json
+tsconfig.json
+
+Importante:
+La carpeta dist/ contiene el frontend final y no debe modificarse.
+
+---
+
+4. CONFIGURACION INICIAL
+
+4.1 Renombrar archivo .env.production
+En la carpeta backend/, renombrar:
+
+.env.production  ->  .env
+
+---
+
+4.2 Ajustar valores dentro de .env
+
+Solo se deben modificar dos variables:
+
+1. MONGO_URI
+   Debe contener la cadena de conexion de MongoDB Atlas.
+
+Ejemplo:
+MONGO_URI=mongodb+srv://usuario:password@servidor.mongodb.net/INEGI_DB
+
+2. PUBLIC_BASE_URL
+   Depende de donde se accedera al sistema:
+
+Si se abrira desde la misma PC:
+PUBLIC_BASE_URL=[http://127.0.0.1:4000](http://127.0.0.1:4000)
+
+Si se abrira desde otra PC en red:
+PUBLIC_BASE_URL=http://IP_DEL_SERVIDOR:4000
+
+Ejemplo:
+PUBLIC_BASE_URL=[http://192.168.1.85:4000](http://192.168.1.85:4000)
+
+Si PUBLIC_BASE_URL no coincide con la direccion usada en el navegador, el sistema sera bloqueado por CORS.
+
+---
+
+5. INSTALACION DEL SISTEMA
+
+1) Abrir PowerShell en backend/
+
+2) Ejecutar:
+   npm install
+
+3) Instalar PM2 (solo la primera vez):
+   npm install -g pm2
+
+---
+
+6. LEVANTAR EL SERVIDOR
+
+Ejecutar:
+start.bat
+
+Este script:
+
+* Verifica PM2
+* Elimina instancias previas
+* Inicia el backend en modo produccion
+* Guarda la configuracion
+* Muestra el estado del sistema
+
+---
+
+7. ACCESO AL SISTEMA
+
+Desde la misma PC:
+[http://127.0.0.1:4000](http://127.0.0.1:4000)
+
+Desde otra PC en la red:
+
+1. Ejecutar en CMD:
+   ipconfig
+
+2. Entrar en navegador usando:
+   http://[IP]:4000
+
+Ejemplo:
+[http://192.168.1.85:4000](http://192.168.1.85:4000)
+
+---
+
+8. ADMINISTRACION DEL SISTEMA (PM2)
+
+Ver estado:
+pm2 status
+
+Ver logs:
+pm2 logs inegi-backend
+
+Detener aplicacion:
+stop.bat
+
+Reiniciar aplicacion:
+restart.bat
+
+Eliminar proceso:
+pm2 delete inegi-backend
+
+---
+
+9. CARPETAS IMPORTANTES
+
+templates/
+Plantillas FA/FE.
+No requiere reiniciar si se agrega una nueva.
+
+logs/
+PM2 genera:
+
+* pm2-error.log
+* pm2-out.log
+* pm2-combined.log
+
+dist/
+Frontend final. No modificar.
+
+---
+
+10. ERRORES COMUNES
+
+1) El frontend no carga
+   Verificar que PUBLIC_BASE_URL coincida con la direccion usada.
+
+2) MongoDB no conecta
+   Revisar:
+
+* Usuario y password correctos
+* Conexion a Internet
+* IP del servidor en whitelist de Atlas
+
+3. La aplicacion arranca y se apaga
+   Ejecutar:
+   pm2 logs inegi-backend
+
+---
+
+11. CONTACTO TECNICO
+
+Alan "Lapsus" Sanchez
+Desarrollador responsable del sistema
+
+---
+
+# FIN DEL DOCUMENTO
+
+

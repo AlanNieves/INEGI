@@ -1,19 +1,21 @@
 module.exports = {
   apps: [
     {
-      name: 'inegi-sistema',
-      script: 'dist/server.js',
+      name: "inegi-backend",
+      script: "./src/server.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '1G',
+      max_memory_restart: "500M",
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: "production",
         PORT: 4000
       },
-      error_file: './logs/pm2-error.log',
-      out_file: './logs/pm2-out.log',
-      log_file: './logs/pm2-combined.log',
+      error_file: "./logs/pm2-error.log",
+      out_file: "./logs/pm2-out.log",
+      log_file: "./logs/pm2-combined.log",
       time: true
     }
   ]
