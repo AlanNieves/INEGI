@@ -35,7 +35,7 @@ async function resolveConvCode(idOrCode?: any) {
   const or = buildOrConv(idOrCode);
   if (!or.length) return "";
   const doc = await Convocatoria.findOne({ $or: or }).lean();
-  const v = doc?.codigo ?? doc?.convocatoria ?? doc?.code ?? "";
+  const v = (doc as any)?.codigo ?? (doc as any)?.convocatoria ?? (doc as any)?.code ?? "";
   return v ? String(v) : "";
 }
 
@@ -63,7 +63,7 @@ async function resolveConcursoCode(idOrCode?: any) {
   const or = buildOrConcurso(idOrCode);
   if (!or.length) return "";
   const doc = await Concurso.findOne({ $or: or }).lean();
-  const v = doc?.codigo ?? doc?.concurso ?? doc?.code;
+  const v = (doc as any)?.codigo ?? (doc as any)?.concurso ?? (doc as any)?.code;
   return v != null ? String(v) : "";
 }
 

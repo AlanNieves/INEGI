@@ -157,6 +157,11 @@ export const api = {
   },
 
   // Examen
+  async listExams() {
+    // GET /api/exams - Lista todos los exámenes guardados
+    const { data } = await http.get("/exams");
+    return data;
+  },
   async prefillExam(token: string) {
     // Debe existir un GET /api/exams/prefill?token=...
     const { data } = await http.get<PrefillPayload>("/exams/prefill", { params: { token } });

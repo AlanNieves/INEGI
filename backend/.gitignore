@@ -1,3 +1,23 @@
-#archivos temporales
-*.tmp 
+# Dependencies
+node_modules
+
+# Environment variables
 .env
+
+# Archivos temporales
+*.tmp
+tmp/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build outputs
+dist
+build
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

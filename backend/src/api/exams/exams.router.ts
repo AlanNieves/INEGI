@@ -51,6 +51,73 @@ const clampPoints = (n: any) => {
 };
 
 /**
+ * GET /api/exams
+ * Lista todos los exámenes guardados (para el historial del frontend)
+ */
+router.get("/", async (req, res) => {
+  try {
+    const exams = await Exam.find()
+      .select("linkToken header answers createdAt _id")
+      .sort({ createdAt: -1 })
+      .limit(100); // Limitar a últimos 100
+
+    const formatted = exams.map(exam => {
+      const answers = (exam as any).answers || {};
+      const header = (exam as any).header || {};
+      
+      // Extraer folios del header (puede estar en diferentes formatos)
+      let folios: string[] = [];
+      if (header.folios && Array.isArray(header.folios)) {
+        folios = header.folios;
+      } else if (header.folio) {
+        folios = [header.folio];
+      }
+
+      return {
+        examId: String(exam._id),
+        token: exam.linkToken,
+        nombreEspecialista: answers.nombreEspecialista || header.nombreEspecialista || "",
+        concurso: answers.concurso || header.concurso || "",
+        convocatoria: answers.convocatoria || header.convocatoria || "",
+        savedAt: (exam as any).createdAt?.toISOString() || new Date().toISOString(),
+        folios,
+        formData: answers, // Datos completos del formulario para edición
+      };
+    });
+
+    return res.json(formatted);
+  } catch (err) {
+    console.error("GET /api/exams error:", err);
+    return res.status(500).json({ error: "server-error" });
+  }
+});
+
+/**
+ * DELETE /api/exams/:examId
+ * Elimina un examen de la base de datos
+ */
+router.delete("/:examId", async (req, res) => {
+  try {
+    const examId = safeStr(req.params.examId);
+    if (!examId) {
+      return res.status(400).json({ error: "invalid" });
+    }
+
+    const exam = await Exam.findById(examId);
+    if (!exam) {
+      return res.status(404).json({ error: "not-found" });
+    }
+
+    await Exam.deleteOne({ _id: examId });
+
+    return res.json({ ok: true, message: "Examen eliminado correctamente" });
+  } catch (err) {
+    console.error("DELETE /api/exams/:examId error:", err);
+    return res.status(500).json({ error: "server-error" });
+  }
+});
+
+/**
  * Normaliza el payload del front (puntajes 0..100) a DTO con ponderaciones que suman exactamente 100 por caso.
  * - La suma de ponderaciones por caso queda EXACTAMENTE en 100.
  * - Si todos los puntajes de un caso son 0, se reparte 100 equitativamente.

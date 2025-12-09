@@ -40,13 +40,13 @@ async function resolveConv(idOr?: string, humanCode?: string) {
   const a = cleanse(idOr);
   const h = cleanse(humanCode); // p.ej. "004/2024"
 
-  // 1) por _id string exacto (tu _id suele ser hash-40)
+  // 1) por _id string exacto (usar collection.findOne para evitar cast a ObjectId)
   if (a) {
-    const byId = await Convocatoria.findOne({ _id: a }, "_id codigo").lean();
-    if (byId) return byId;
-    if (isOid(a)) {
-      const byOid = await Convocatoria.findById(toOid(a), "_id codigo").lean();
-      if (byOid) return byOid;
+    try {
+      const byId = await Convocatoria.collection.findOne({ _id: a } as any);
+      if (byId) return byId;
+    } catch (err) {
+      // Si falla, continuar con otras búsquedas
     }
   }
 
@@ -75,13 +75,13 @@ async function resolveConc(idOr?: string, human?: string, convId?: string) {
   const a = cleanse(idOr);
   const h = cleanse(human); // p.ej. "124002" (num como string)
 
-  // 1) por _id string exacto
+  // 1) por _id string exacto (usar collection.findOne para evitar cast a ObjectId)
   if (a) {
-    const byId = await Concurso.findOne({ _id: a }, "_id codigo convocatoriaId concurso").lean();
-    if (byId) return byId;
-    if (isOid(a)) {
-      const byOid = await Concurso.findById(toOid(a), "_id codigo convocatoriaId concurso").lean();
-      if (byOid) return byOid;
+    try {
+      const byId = await Concurso.collection.findOne({ _id: a } as any);
+      if (byId) return byId;
+    } catch (err) {
+      // Si falla, continuar con otras búsquedas
     }
   }
 
@@ -269,6 +269,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       especialistaId,      // _id, email, curp, nombre
       ttlHours = 48,
       prefill: clientPrefill = {},
+      folios,              // 🆕 array de folios cuando es batch (opcional)
     } = req.body || {};
 
     if (DEBUG) console.debug("[links] incoming body:", req.body);
@@ -321,10 +322,26 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     const conc = await resolveConc(String(concursoId), rawConcCodigo, conv?._id as any);
     const concIdFinal = (conc?._id as any) || String(concursoId) || (plaza as any).concurso_id || (plaza as any).concursoId;
 
+    if (DEBUG) console.debug('[links] Resolución de IDs:', { 
+      conv: conv?._id, 
+      conc: conc?._id,
+      convIdFinal, 
+      concIdFinal,
+      plazaId: plaza._id 
+    });
+
     if (DEBUG) console.debug("[links] final ids:", { convIdFinal, concIdFinal, plazaId: plaza._id });
 
     // Si aún así no tenemos IDs, aborta con detalle claro
     if (!convIdFinal || !concIdFinal) {
+      console.error('[links] IDs no resueltos:', { 
+        convIdFinal, 
+        concIdFinal,
+        convocatoriaId,
+        concursoId,
+        rawConvCodigo,
+        rawConcCodigo
+      });
       return res.status(400).json({
         message: "invalid reference ids",
         detail: "convocatoria o concurso no resolvieron",
@@ -336,17 +353,24 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     let esp = null as any;
     const idEsp = cleanse(String(especialistaId || ""));
     const jefeNombre = cleanse(String(clientPrefill?.jefeNombre || ""));
+    
+    if (DEBUG) console.debug('[links] Resolviendo especialista:', { especialistaId, idEsp, jefeNombre });
+    
     if (idEsp) {
       esp = await Especialista.findOne(
-        { $or: [{ _id: idEsp }, { email: idEsp.toLowerCase() }, { curp: idEsp.toUpperCase() }, { nombreCompleto: idEsp }, { hash: idEsp }] },
-        "_id nombreCompleto email curp"
+        { $or: [{ _id: idEsp }, { correo: idEsp.toLowerCase() }, { nombre: idEsp }, { hash: idEsp }] },
+        "_id nombre correo puesto"
       ).lean();
+      if (DEBUG) console.debug('[links] Especialista encontrado por ID:', esp);
     }
     if (!esp && jefeNombre) {
-      const created = await Especialista.create({ nombreCompleto: jefeNombre });
-      esp = { _id: created._id, nombreCompleto: jefeNombre } as any;
+      if (DEBUG) console.debug('[links] Creando especialista con nombre:', jefeNombre);
+      const created = await Especialista.create({ nombre: jefeNombre });
+      esp = { _id: created._id, nombre: jefeNombre } as any;
+      if (DEBUG) console.debug('[links] Especialista creado:', esp);
     }
     if (!esp?._id) {
+      console.error('[links] No se pudo resolver especialista:', { especialistaId, jefeNombre });
       return res.status(400).json({ message: "invalid especialistaId (no se pudo resolver o crear especialista)" });
     }
 
@@ -377,15 +401,23 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     const unidadAdm = clientPrefill?.unidadAdministrativa || (plaza as any).unidadAdministrativa || (plaza as any).unidad_adm || "";
     const radicacion = clientPrefill?.radicacion || (plaza as any)?.radicacion || "";
 
+    // Normalizar array de folios (eliminar duplicados y valores vacíos)
+    const foliosArray = Array.isArray(folios) 
+      ? [...new Set(folios.filter((f: any) => f && typeof f === 'string' && f.trim()))]
+      : [];
+    
+    const isBatch = foliosArray.length > 1;
+
     const prefill = {
       convocatoria: rawConvCodigo,
       concurso: rawConcCodigo,
       plazaCodigo,
       puesto: puestoNombre,
       unidadAdministrativa: unidadAdm,
-      folio,
-      jefeNombre: jefeNombre || (esp as any)?.nombreCompleto || "",
+      folio: isBatch ? `LOTE (${foliosArray.length} folios)` : (folio || clientPrefill?.folio || ""),
+      jefeNombre: jefeNombre || (esp as any)?.nombre || "",
       radicacion,
+      ...(foliosArray.length > 0 && { folios: foliosArray }), // Solo agregar si hay folios
     };
 
     /* 5) Token + TTL y creación del link */
@@ -421,7 +453,26 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     res.setHeader("Cache-Control", "no-store");
     return res.status(201).json({ url, token, expiraAt, prefillPreview: prefill });
   } catch (err: any) {
-    if (err?.name === "CastError") return res.status(400).json({ code: "invalid_id", message: "Invalid _id" });
+    console.error("[links] ERROR COMPLETO:", {
+      name: err?.name,
+      message: err?.message,
+      path: err?.path,
+      value: err?.value,
+      stack: err?.stack?.split('\n').slice(0, 5)
+    });
+    
+    if (err?.name === "CastError") {
+      console.error("[links] CastError detectado:", {
+        path: err?.path,
+        value: err?.value,
+        kind: err?.kind
+      });
+      return res.status(400).json({ 
+        code: "invalid_id", 
+        message: "Invalid _id",
+        detail: `Error en campo ${err?.path}: ${err?.value}`
+      });
+    }
     console.error("[links] error:", err?.message);
     return res.status(500).json({ code: "internal_error", message: err?.message || "Internal error" });
   }

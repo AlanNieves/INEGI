@@ -3,11 +3,23 @@ import express, { Request, Response, NextFunction } from 'express';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import path from 'path';
 import { apiRouter } from './api';
 import { config } from './shared/config';
-import debugPlazaRouter from './api/plazas/plazas.router';
+import debugPlazaRouter from './api/_debug/plaza.router';
 import triangulacionRouter from './api/triangulacion/triangulacion.router';
+import { preventNoSQLInjection } from './middleware/validateRequest';
 const app = express();
+
+// Rate limiting global
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // 100 en prod, 1000 en dev
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiadas peticiones, intente más tarde' }
+});
 
 app.use(helmet());
 app.use(
@@ -17,12 +29,19 @@ app.use(
   })
 );
 
+// Aplicar rate limiting a todas las rutas API
+app.use('/api', globalLimiter);
+
 app.use(express.static('public'));
 
 // Evita ETag/304 en dev
 app.set('etag', false);
 
 app.use(express.json({ limit: '1mb' }));
+
+// Protección contra NoSQL Injection (debe ir DESPUÉS de express.json)
+app.use(preventNoSQLInjection());
+
 app.use(
   morgan(
     'method=:method path=":url" status=:status ip=":remote-addr" rt_ms=:response-time ua=":user-agent"'
@@ -33,10 +52,23 @@ app.use(
 app.use(['/api', '/api/v1'], apiRouter);
 app.use("/api", triangulacionRouter);
 
-// 404 JSON para rutas inexistentes
-app.use((_req: Request, res: Response): void => {
-  res.status(404).json({ code: 'not_found', message: 'Route not found' });
-});
+// Servir archivos estáticos del frontend en producción
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, '../dist');
+  app.use(express.static(distPath));
+  
+  // Todas las rutas que no sean API devuelven el index.html (SPA)
+  app.get('*', (req: Request, res: Response) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+// 404 JSON para rutas inexistentes (solo en desarrollo)
+if (process.env.NODE_ENV !== 'production') {
+  app.use((_req: Request, res: Response): void => {
+    res.status(404).json({ code: 'not_found', message: 'Route not found' });
+  });
+}
 
 // Identificar CastError de Mongoose y bajarlo a 400
 function isMongooseCastError(err: unknown): err is { name: string; path?: string } {
@@ -54,7 +86,11 @@ app.use(
   }
 );
 
-app.use("/api/_debug", debugPlazaRouter);
+// Endpoints de debug solo en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  app.use("/api/_debug", debugPlazaRouter);
+}
+
 // Manejo centralizado de errores (shape estable)
 app.use(
   (err: unknown, req: Request, res: Response, _next: NextFunction): void => {

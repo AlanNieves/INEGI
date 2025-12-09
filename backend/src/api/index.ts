@@ -1,4 +1,3 @@
-// src/api/index.ts
 import { Router } from 'express';
 import healthRouter from './health/health.router';
 import catalogRouter from './catalog/catalog.router';
@@ -12,6 +11,9 @@ import aspirantesRouter from './aspirantes/aspirantes.router';
 // ⬇⬇⬇ NUEVOS ⬇⬇⬇
 import estructuraRouter from './estructura/estructura.router';
 import artifactsRouter from './artifacts/artifacts.router';
+import especialistasRouter from './especialistas/especialistas.router';
+import convocatoriasRouter from './convocatorias/convocatorias.router';
+import concursosRouter from './concursos/concursos.router';
 
 export const apiRouter = Router();
 
@@ -21,13 +23,9 @@ apiRouter.use('/plazas', plazasRouter);
 apiRouter.use('/links', linksRouter);
 apiRouter.use('/aspirantes', aspirantesRouter);
 
-apiRouter.use("/links", linksRouter)
-
-apiRouter.use('/exams', examsRouter);
-
-// Prefill primero
+// Exams (prefill primero para que capture /exams/prefill antes de /exams/:id)
 apiRouter.use('/exams', prefillRouter);
-// Exams
+apiRouter.use('/exams', examsRouter);
 
 // Consents
 apiRouter.use('/consents', consentsRouter);
@@ -35,3 +33,8 @@ apiRouter.use('/consents', consentsRouter);
 // ⬇⬇⬇ NUEVOS ENDPOINTS QUE USA EL FE ⬇⬇⬇
 apiRouter.use('/estructura', estructuraRouter);
 apiRouter.use('/artifacts', artifactsRouter);
+
+// ⬇⬇⬇ CRUD ENDPOINTS DE ADMINISTRACIÓN ⬇⬇⬇
+apiRouter.use('/especialistas', especialistasRouter);
+apiRouter.use('/convocatorias', convocatoriasRouter);
+apiRouter.use('/concursos', concursosRouter);

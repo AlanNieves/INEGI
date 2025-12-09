@@ -2,34 +2,34 @@ import { Schema, Types, model } from "mongoose";
 
 const PlazaSchema = new Schema(
   {
-    convocatoriaId: { type: Types.ObjectId, ref: "Convocatoria", required: true, index: true },
-    concursoId: { type: Types.ObjectId, ref: "Concurso", required: true, index: true },
+    concurso_id: { type: String, required: true, index: true },
+    convocatoria: { type: String, required: true, index: true },
+    concurso: { type: Number, required: true },
+    codigo: { type: String, required: true, trim: true },
     puesto: { type: String, required: true, trim: true },
-    codigoPlaza: { type: String, required: true, trim: true },
-    unidadAdministrativa: { type: String, required: true, trim: true },
-    folio: { type: String, required: true, unique: true, trim: true },
-    // YYYY-MM-DD y HH:mm (24h); guardamos como string por simplicidad
-    fechaAplicacion: { type: String, required: true },
-    horaAplicacion: { type: String, required: true },
-    especialistaId: { type: Types.ObjectId, ref: "Especialista", required: true },
+    unidad_adm: { type: String, required: true, trim: true },
+    radicacion: { type: String, trim: true },
+    especialista_id: { type: String, index: true },
   },
-  { timestamps: true }
+  { 
+    timestamps: false,
+    strict: false 
+  }
 );
 
 // Índice compuesto para acelerar búsqueda por convocatoria+concurso
-PlazaSchema.index({ convocatoriaId: 1, concursoId: 1 });
+PlazaSchema.index({ convocatoria: 1, concurso: 1 });
 
 export type Plaza = {
   _id: string;
-  convocatoriaId: string;
-  concursoId: string;
+  concurso_id: string;
+  convocatoria: string;
+  concurso: number;
+  codigo: string;
   puesto: string;
-  codigoPlaza: string;
-  unidadAdministrativa: string;
-  folio: string;
-  fechaAplicacion: string; // YYYY-MM-DD
-  horaAplicacion: string; // HH:mm
-  especialistaId: string;
+  unidad_adm: string;
+  radicacion?: string;
+  especialista_id?: string;
 };
 
 export default model<Plaza>("Plaza", PlazaSchema);

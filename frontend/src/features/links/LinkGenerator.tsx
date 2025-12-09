@@ -8,19 +8,15 @@ import GlassDropdown from "./components/GlassDropdown";
 
 type Convocatoria = {
   _id: string;
-  codigo?: string;
-  nombre?: string;
-  activa?: boolean;
-  hash?: string;
+  nombre: string;
 };
 
 type Concurso = {
   _id: string;
-  convocatoriaId?: string;
-  codigo?: string;
-  nombre?: string;
-  activo?: boolean;
-  hash?: string;
+  concurso_id: string;
+  convocatoria_id: string;
+  convocatoria: string;
+  nombre: number;
 };
 
 type Plaza = {
@@ -44,9 +40,9 @@ type Plaza = {
 
 type Especialista = {
   _id: string;
-  nombreCompleto?: string;
-  nombre?: string;
-  email?: string;
+  nombre: string;
+  correo?: string;
+  puesto?: string;
 };
 
 type Aspirante = {
@@ -76,15 +72,15 @@ function getEspecialistaNombre(p: Plaza, map: Record<string, Especialista>) {
   const id = getEspecialistaId(p);
   return (
     p.especialistaNombre ||
-    (id ? map[id]?.nombreCompleto || (map[id] as any)?.nombre : "") ||
+    (id ? map[id]?.nombre : "") ||
     ""
   );
 }
 function labelConcurso(c: Concurso) {
-  return c.nombre || c.codigo || c.hash || "SIN-NOMBRE";
+  return String(c.nombre) || c._id;
 }
 function labelConvocatoria(c: Convocatoria) {
-  return c.codigo || c.nombre || c.hash || "SIN-CODIGO";
+  return c.nombre || c._id;
 }
 
 /* --------------------------------- Componente -------------------------------- */
@@ -104,7 +100,6 @@ export default function LinkGenerator() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, GenResult>>({});
-  const [showTable, setShowTable] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownHeight, setDropdownHeight] = useState(0);
@@ -161,14 +156,25 @@ export default function LinkGenerator() {
       setPlazas([]);
       setAspirantes([]);
       if (!convId || !concId) return;
+
+      console.log('🔍 LinkGenerator - Cargando plazas y aspirantes para:', { convId, concId });
+
       try {
         const [plazasData, aspirantesData] = await Promise.all([
           api.listPlazas(convId, concId),
           api.listAspirantes(convId, concId),
         ]);
+
+        console.log('✅ LinkGenerator - Datos cargados:', {
+          plazas: plazasData.length,
+          aspirantes: aspirantesData.length,
+          primeraPlaza: plazasData[0] || null
+        });
+
         setPlazas(plazasData as any);
         setAspirantes(aspirantesData);
       } catch (e: any) {
+        console.error('❌ LinkGenerator - Error cargando datos:', e);
         setError(e?.message || "Error cargando plazas/aspirantes.");
       }
     })();
@@ -206,8 +212,8 @@ export default function LinkGenerator() {
     try {
       const conv = convocatorias.find((c) => c._id === convId);
       const conc = concursos.find((c) => c._id === concId);
-      const convCode = conv?.codigo || conv?.nombre || "";
-      const concCode = conc?.codigo || conc?.nombre || "";
+      const convCode = conv?.nombre || "";
+      const concCode = String(conc?.nombre || "");
       const primeraPlaza = plazas[0];
       if (!primeraPlaza) {
         setError("No hay plazas disponibles");
@@ -238,6 +244,14 @@ export default function LinkGenerator() {
         },
       };
 
+      console.log('📤 Enviando request para crear link:', {
+        convocatoriaId: body.convocatoriaId,
+        concursoId: body.concursoId,
+        plazaId: body.plazaId,
+        prefill: body.prefill,
+        foliosCount: foliosArray.length
+      });
+
       const res = await api.createLink(body);
       setSelectedFolios(foliosArray);
       setResults(prev => ({ ...prev, [BATCH_KEY]: res }));
@@ -262,7 +276,7 @@ export default function LinkGenerator() {
             });
             localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
           }
-        } catch {}
+        } catch { }
       }
     } catch (e: any) {
       const serverMsg =
@@ -274,13 +288,6 @@ export default function LinkGenerator() {
       setBusy(false);
     }
   };
-
-  useEffect(() => {
-    setShowTable(false);
-    if (convId && concId && aspirantes.length > 0) {
-      setTimeout(() => setShowTable(true), 50);
-    }
-  }, [convId, concId, aspirantes.length]);
 
   return (
     <section
@@ -295,8 +302,10 @@ export default function LinkGenerator() {
         Selecciona la <strong>convocatoria</strong> y el <strong>concurso</strong>. Luego, genera un link para cada plaza.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
-        <div ref={dropdownRef}>
+      <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-10 justify-items-center mb-6 mx-auto w-fit">
+
+        {/* Convocatoria */}
+        <div ref={dropdownRef} className="w-64 md:w-80">
           <GlassDropdown
             label="Convocatoria"
             value={convId}
@@ -311,140 +320,122 @@ export default function LinkGenerator() {
             onOpenChange={setDropdownOpen}
           />
         </div>
-        <GlassDropdown
-          label="Concurso"
-          value={concId}
-          options={[
-            { value: "", label: "— Seleccionar —" },
-            ...concursos.map((c) => ({
-              value: c._id,
-              label: labelConcurso(c),
-            })),
-          ]}
-          onChange={setConcId}
-          disabled={!convId}
-          onOpenChange={setDropdownOpen} // PASA EL HANDLER
-        />
-        <div className="flex items-center gap-2">
-          <button
-            className="px-4 py-2 rounded-xl bg-cyan-900 text-cyan-100 shadow disabled:opacity-50"
-            disabled
-            title="Las plazas se listan automáticamente al elegir Convocatoria y Concurso"
-          >
-            Listar plazas
-          </button>
-          {error && <span className="text-cyan-300 text-sm">{error}</span>}
+
+        {/* Concurso */}
+        <div className="w-64 md:w-80">
+          <GlassDropdown
+            label="Concurso"
+            value={concId}
+            options={[
+              { value: "", label: "— Seleccionar —" },
+              ...concursos.map((c) => ({
+                value: c._id,
+                label: labelConcurso(c),
+              })),
+            ]}
+            onChange={setConcId}
+            disabled={!convId}
+            onOpenChange={setDropdownOpen}
+          />
         </div>
+
       </div>
 
       {convId && concId && (
         <>
-          <button
-            className="mb-4 px-5 py-2 btn-glass"
-            onClick={() => setShowTable((v) => !v)}
-            type="button"
-          >
-            {showTable ? "Ocultar plazas" : "Mostrar plazas"}
-          </button>
-
-          <div
-            className={`glass-table-container ${showTable ? "open" : ""}`}
-            aria-hidden={!showTable}
-          >
-            {aspirantes.length > 0 && (
-              <div className="mb-8 p-6 glass-table">
-                <div className="mb-4">
-                  <h3 className="text-xl font-bold text-cyan-100 mb-2">
-                    Plaza Seleccionada
-                  </h3>
-                  <p className="text-sm text-cyan-200">
-                    Información de la plaza y jefe de plaza para la generación del link.
-                  </p>
-                </div>
-
-                <div className="mt-4">
-                  <div className="overflow-x-auto shadow-md rounded-xl">
-                    <table className="min-w-full text-left border-collapse">
-                      <thead className="bg-gradient-to-r from-cyan-800 to-cyan-600 text-cyan-100 text-sm">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold">Plaza</th>
-                          <th className="px-4 py-3 font-semibold">Puesto</th>
-                          <th className="px-4 py-3 font-semibold">Unidad</th>
-                          <th className="px-4 py-3 font-semibold">Jefe de plaza</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-[#0a1624]/60">
-                        {plazas.length === 0 && (
-                          <tr>
-                            <td colSpan={4} className="px-4 py-8 text-center text-cyan-400">
-                              <div className="flex flex-col items-center gap-2">
-                                <p>No hay plazas para esta combinación.</p>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-
-                        {plazas.map((p) => {
-                          const codigo = getPlazaCodigo(p);
-                          const puesto = getPuesto(p);
-                          const unidad = getUnidad(p);
-                          const espName = getEspecialistaNombre(p, especialistasById) || "—";
-
-                          return (
-                            <tr key={p._id} className="border-t border-cyan-900/40 hover:bg-cyan-900/20 transition-colors">
-                              <td className="px-4 py-3 font-mono text-sm text-cyan-100">{codigo || "—"}</td>
-                              <td className="px-4 py-3 text-sm text-cyan-100">{puesto || "—"}</td>
-                              <td className="px-4 py-3 text-sm text-cyan-100">{unidad || "—"}</td>
-                              <td className="px-4 py-3 text-sm text-cyan-100">{espName}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-cyan-300">
-                    Total: <strong className="ml-1 text-cyan-100">{aspirantes.length}</strong> aspirantes disponibles
-                  </div>
-                  <button
-                    onClick={handleProceedWithAllFolios}
-                    disabled={busy}
-                    className="px-6 py-3 bg-cyan-700 text-cyan-100 font-semibold rounded-lg hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed shadow"
-                  >
-                    {busy ? 'Generando...' : 'Generar link'}
-                  </button>
-                </div>
-
-                {error && (
-                  <p className="text-sm text-cyan-300 mt-3">{error}</p>
-                )}
-
-                {results[BATCH_KEY] && (
-                  <div className="mt-4 p-4 bg-cyan-900/20 rounded-lg border border-cyan-700/30">
-                    <p className="text-xs text-cyan-300 mb-2">Link generado:</p>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <a
-                        className="text-cyan-300 hover:text-cyan-100 font-mono text-sm break-all underline decoration-2"
-                        href={(results as any)[BATCH_KEY].url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {(results as any)[BATCH_KEY].url}
-                      </a>
-                      <button
-                        className="text-xs px-4 py-2 bg-cyan-900 hover:bg-cyan-800 border border-cyan-700 rounded-lg font-medium transition-colors text-cyan-100 whitespace-nowrap"
-                        onClick={() => copy((results as any)[BATCH_KEY].url)}
-                        title="Copiar al portapapeles"
-                      >
-                        Copiar
-                      </button>
-                    </div>
-                  </div>
-                )}
+          <div className="glass-table-container open">
+            <div className="mb-8 p-6 glass-table">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-cyan-100 mb-2">
+                  Plazas Disponibles
+                </h3>
+                <p className="text-sm text-cyan-200">
+                  Información de las plazas y jefes de plaza para la generación del link.
+                </p>
               </div>
-            )}
+
+              <div className="mt-4">
+                <div className="overflow-x-auto shadow-md rounded-xl">
+                  <table className="min-w-full text-left border-collapse">
+                    <thead className="bg-gradient-to-r from-cyan-800 to-cyan-600 text-cyan-100 text-sm">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Plaza</th>
+                        <th className="px-4 py-3 font-semibold">Puesto</th>
+                        <th className="px-4 py-3 font-semibold">Unidad</th>
+                        <th className="px-4 py-3 font-semibold">Jefe de plaza</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-[#0a1624]/60">
+                      {plazas.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-cyan-400">
+                            <div className="flex flex-col items-center gap-2">
+                              <p>No hay plazas para esta combinación.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
+                      {plazas.map((p) => {
+                        const codigo = getPlazaCodigo(p);
+                        const puesto = getPuesto(p);
+                        const unidad = getUnidad(p);
+                        const espName = getEspecialistaNombre(p, especialistasById) || "—";
+
+                        return (
+                          <tr key={p._id} className="border-t border-cyan-900/40 hover:bg-cyan-900/20 transition-colors">
+                            <td className="px-4 py-3 font-mono text-sm text-cyan-100">{codigo || "—"}</td>
+                            <td className="px-4 py-3 text-sm text-cyan-100">{puesto || "—"}</td>
+                            <td className="px-4 py-3 text-sm text-cyan-100">{unidad || "—"}</td>
+                            <td className="px-4 py-3 text-sm text-cyan-100">{espName}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-cyan-300">
+                  Total: <strong className="ml-1 text-cyan-100">{aspirantes.length}</strong> aspirantes disponibles
+                </div>
+                <button
+                  onClick={handleProceedWithAllFolios}
+                  disabled={busy || aspirantes.length === 0}
+                  className="px-6 py-3 bg-cyan-700 text-cyan-100 font-semibold rounded-lg hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed shadow"
+                >
+                  {busy ? 'Generando...' : 'Generar link'}
+                </button>
+              </div>
+
+              {error && (
+                <p className="text-sm text-cyan-300 mt-3">{error}</p>
+              )}
+
+              {results[BATCH_KEY] && (
+                <div className="mt-4 p-4 bg-cyan-900/20 rounded-lg border border-cyan-700/30">
+                  <p className="text-xs text-cyan-300 mb-2">Link generado:</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <a
+                      className="text-cyan-300 hover:text-cyan-100 font-mono text-sm break-all underline decoration-2"
+                      href={(results as any)[BATCH_KEY].url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {(results as any)[BATCH_KEY].url}
+                    </a>
+                    <button
+                      className="text-xs px-4 py-2 bg-cyan-900 hover:bg-cyan-800 border border-cyan-700 rounded-lg font-medium transition-colors text-cyan-100 whitespace-nowrap"
+                      onClick={() => copy((results as any)[BATCH_KEY].url)}
+                      title="Copiar al portapapeles"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

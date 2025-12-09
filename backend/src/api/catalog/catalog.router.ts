@@ -1,9 +1,10 @@
 // src/api/catalog/catalog.router.ts
-import { Router, Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
-import Convocatoria from '../../models/Convocatoria';
-import Concurso from '../../models/Concurso';
-import Especialista from '../../models/Especialista';
+import { Router, Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
+import Convocatoria from "../../models/Convocatoria";
+import Concurso from "../../models/Concurso";
+import Especialista from "../../models/Especialista";
+import { validateQueryStrings } from "../../middleware/validateRequest";
 
 const router = Router();
 
@@ -14,33 +15,27 @@ const toOid = (v: string) => new Types.ObjectId(v);
 router.get('/convocatorias', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const rows = await Convocatoria
-      .find({}, { codigo: 1, nombre: 1, activa: 1, createdAt: 1 })
-      .sort({ createdAt: -1 })
+      .find({})
       .lean();
 
     // Evita cacheo en dev (y que el front vea 304)
     res.set('Cache-Control', 'no-store');
 
-    // Normaliza: { _id, codigo, activa }
+    // Normaliza: { _id, nombre }
     const items = rows.map((r: any) => ({
       _id: String(r._id),
-      codigo: (r.codigo ?? r.code ?? r.clave ?? r.nombre ?? r.descripcion ?? '').toString(),
-      activa:
-        typeof r.activa === 'boolean'
-          ? r.activa
-          : r.estado
-          ? r.estado === 'activa'
-          : true,
+      nombre: (r.nombre ?? '').toString(),
     }));
 
     return res.json(items);
   } catch (err) {
+    console.error('Error en GET /catalog/convocatorias:', err);
     next(err);
   }
 });
 
 /* ---------- Concursos ---------- */
-router.get('/concursos', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/concursos', validateQueryStrings('convocatoriaId'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { convocatoriaId } = req.query as { convocatoriaId?: string };
 
@@ -75,37 +70,18 @@ router.get('/concursos', async (req: Request, res: Response, next: NextFunction)
 
     res.set('Cache-Control', 'no-store');
 
-    // Normaliza: { _id, convocatoriaId, nombre, activo }
+    // Normaliza: { _id, concurso_id, convocatoria_id, convocatoria, nombre }
     const out = rows.map((r: any) => ({
       _id: String(r._id),
-      convocatoriaId: String(
-        r.convocatoriaId ??
-        r.convId ??
-        r.convocatoria_id ??
-        r.convocatoria ??
-        r.convocatoriaCode ??
-        ''
-      ),
-      nombre:
-        r.nombre ??
-        r.name ??
-        r.titulo ??
-        r.descripcion ??
-        r.code ??
-        r.codigo ??
-        '',
-      activo: !!(r.activo ?? (r.estado ? r.estado === 'activo' : true)),
+      concurso_id: String(r.concurso_id ?? ''),
+      convocatoria_id: String(r.convocatoria_id ?? ''),
+      convocatoria: String(r.convocatoria ?? ''),
+      nombre: Number(r.nombre) || 0,
     }));
-
-    // Fallback para evitar opciones sin texto
-    out.forEach(c => {
-      if (!c.nombre || !String(c.nombre).trim()) {
-        c.nombre =` Concurso ${c._id.slice(-6)}`;
-      }
-    });
 
     return res.json(out);
   } catch (err) {
+    console.error('Error en GET /catalog/concursos:', err);
     next(err);
   }
 });
@@ -114,21 +90,25 @@ router.get('/concursos', async (req: Request, res: Response, next: NextFunction)
 router.get('/especialistas', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const rows = await Especialista
-      .find({}, { nombreCompleto: 1, nombre: 1, email: 1, createdAt: 1 })
-      .sort({ createdAt: -1 })
+      .find(
+        { nombre: { $exists: true, $ne: '' } },
+        { nombre: 1, correo: 1, puesto: 1 }
+      )
       .lean();
 
     res.set('Cache-Control', 'no-store');
 
-    // Normaliza: { _id, nombreCompleto, email? }
+    // Normaliza: { _id, nombre, correo, puesto }
     const items = rows.map((r: any) => ({
       _id: String(r._id),
-      nombreCompleto: (r.nombreCompleto ?? r.nombre ?? '').toString(),
-      email: r.email || undefined,
+      nombre: (r.nombre ?? '').toString(),
+      correo: (r.correo ?? '').toString(),
+      puesto: (r.puesto ?? '').toString(),
     }));
 
     return res.json(items);
   } catch (err) {
+    console.error('Error en GET /catalog/especialistas:', err);
     next(err);
   }
 });

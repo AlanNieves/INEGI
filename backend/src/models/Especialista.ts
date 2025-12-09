@@ -2,18 +2,18 @@ import { Schema, model } from 'mongoose';
 
 const EspecialistaSchema = new Schema(
   {
-    nombreCompleto: { type: String, required: true, trim: true },
-    email: { type: String, trim: true },
-    curp: { type: String, trim: true }
+    nombre: { type: String, required: true, trim: true },
+    correo: { type: String, trim: true },
+    puesto: { type: String, trim: true }
   },
-  { timestamps: true }
+  { timestamps: false }
 );
 
 export type Especialista = {
   _id: string;
-  nombreCompleto: string;
-  email?: string;
-  curp?: string;
+  nombre: string;
+  correo?: string;
+  puesto?: string;
 };
 
 export default model<Especialista>('Especialista', EspecialistaSchema);
