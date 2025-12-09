@@ -269,6 +269,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       especialistaId,      // _id, email, curp, nombre
       ttlHours = 48,
       prefill: clientPrefill = {},
+      folios,              // 🆕 array de folios cuando es batch (opcional)
     } = req.body || {};
 
     if (DEBUG) console.debug("[links] incoming body:", req.body);
@@ -400,15 +401,23 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     const unidadAdm = clientPrefill?.unidadAdministrativa || (plaza as any).unidadAdministrativa || (plaza as any).unidad_adm || "";
     const radicacion = clientPrefill?.radicacion || (plaza as any)?.radicacion || "";
 
+    // Normalizar array de folios (eliminar duplicados y valores vacíos)
+    const foliosArray = Array.isArray(folios) 
+      ? [...new Set(folios.filter((f: any) => f && typeof f === 'string' && f.trim()))]
+      : [];
+    
+    const isBatch = foliosArray.length > 1;
+
     const prefill = {
       convocatoria: rawConvCodigo,
       concurso: rawConcCodigo,
       plazaCodigo,
       puesto: puestoNombre,
       unidadAdministrativa: unidadAdm,
-      folio,
+      folio: isBatch ? `LOTE (${foliosArray.length} folios)` : (folio || clientPrefill?.folio || ""),
       jefeNombre: jefeNombre || (esp as any)?.nombre || "",
       radicacion,
+      ...(foliosArray.length > 0 && { folios: foliosArray }), // Solo agregar si hay folios
     };
 
     /* 5) Token + TTL y creación del link */

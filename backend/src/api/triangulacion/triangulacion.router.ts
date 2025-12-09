@@ -51,7 +51,7 @@ r.get("/submissions/:id/fe", async (req, res, next) => {
     }];
     
     const xlsx = await generarFE({ 
-      encabezado: m.encabezado, 
+      encabezado: { ...m.encabezado, folio: (m.encabezado as any).folio || '' }, 
       casos: casosParaFE 
     });
     

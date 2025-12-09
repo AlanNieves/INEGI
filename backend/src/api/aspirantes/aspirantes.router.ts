@@ -62,7 +62,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
       // Usar collection.findOne() para evitar cast a ObjectId
       concursoDoc = await Concurso.collection.findOne({
         $or: [
-          { _id: concursoId },
+          { _id: concursoId as any },
           { concurso_id: concursoId }
         ]
       });
@@ -77,7 +77,7 @@ router.get("/by-plaza", validateQueryStrings('convocatoriaId', 'concursoId'), as
       // Usar collection.findOne() para evitar cast a ObjectId
       convocatoriaDoc = await Convocatoria.collection.findOne({
         $or: [
-          { _id: convocatoriaId },
+          { _id: convocatoriaId as any },
           { nombre: convocatoriaId }
         ]
       });

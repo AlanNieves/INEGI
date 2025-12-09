@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 import { apiRouter } from './api';
 import { config } from './shared/config';
 import debugPlazaRouter from './api/_debug/plaza.router';
@@ -51,10 +52,23 @@ app.use(
 app.use(['/api', '/api/v1'], apiRouter);
 app.use("/api", triangulacionRouter);
 
-// 404 JSON para rutas inexistentes
-app.use((_req: Request, res: Response): void => {
-  res.status(404).json({ code: 'not_found', message: 'Route not found' });
-});
+// Servir archivos estáticos del frontend en producción
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, '../dist');
+  app.use(express.static(distPath));
+  
+  // Todas las rutas que no sean API devuelven el index.html (SPA)
+  app.get('*', (req: Request, res: Response) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+// 404 JSON para rutas inexistentes (solo en desarrollo)
+if (process.env.NODE_ENV !== 'production') {
+  app.use((_req: Request, res: Response): void => {
+    res.status(404).json({ code: 'not_found', message: 'Route not found' });
+  });
+}
 
 // Identificar CastError de Mongoose y bajarlo a 400
 function isMongooseCastError(err: unknown): err is { name: string; path?: string } {
